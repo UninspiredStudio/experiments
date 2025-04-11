@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cascading Image Stack (Size/Scale/Radius Controls)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles */
+        html, body {
+            height: 100%; overflow: hidden; font-family: 'Inter', sans-serif;
+             background-color: #f0f4f8; /* bg-gray-100 */
+        }
+        .main-content-area { display: flex; width: 100%; height: 100vh; }
+
+        /* Left Column */
+        .controls-column {
+            width: 30vw; min-width: 280px; max-width: 400px; padding: 1rem;
+            height: 100vh; overflow-y: auto; background-color: #f9fafb; /* bg-gray-50 */
+            border-right: 1px solid #e5e7eb; /* border-gray-200 */
+        }
+        /* Control Panel */
+        #control-panel {
+            background-color: rgba(255, 255, 255, 0.95); padding: 1rem; border-radius: 0.5rem; /* rounded-lg */
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+        }
+        #control-panel label {
+            display: block; margin-bottom: 0.25rem; font-weight: 600; /* font-semibold */
+            font-size: 0.875rem; /* text-sm */ color: #374151; /* text-gray-700 */
+        }
+        #control-panel input[type="range"], #control-panel input[type="file"] {
+            width: 100%; margin-bottom: 0.75rem; cursor: pointer;
+        }
+        #control-panel input[type="file"]::file-selector-button {
+             font-weight: 600; /* font-semibold */ color: #3b82f6; /* text-blue-500 */ padding: 0.3rem 0.6rem; border: 1px solid #d1d5db; /* border-gray-300 */
+             border-radius: 0.375rem; /* rounded-md */ cursor: pointer; background-color: white;
+             transition: background-color 0.2s; margin-right: 0.5rem;
+        }
+        #control-panel input[type="file"]::file-selector-button:hover { background-color: #f9fafb; /* hover:bg-gray-50 */ }
+        #control-panel .value-display { font-size: 0.875rem; /* text-sm */ color: #1f2937; /* text-gray-800 */ font-weight: 500; }
+
+        /* Right Column */
+        .preview-column {
+            flex-grow: 1; display: flex; align-items: center; justify-content: center;
+            padding: 1rem; height: 100vh; overflow: hidden;
+        }
+        /* Stack Container - Fixed size to contain the resizing items */
+        .stack-container {
+            position: relative; width: 350px; height: 650px; perspective: 1000px;
+            display: flex; justify-content: center; align-items: center; flex-shrink: 0;
+            /* Added border for visualization during resizing */
+            /* border: 1px dashed #9ca3af; */
+        }
+
+        /* Stack Item Wrapper - Handles position, base size (now dynamic), and state transitions */
+        .stack-item {
+            position: absolute;
+            /* width and height are now set by JS */
+            /* aspect-ratio removed */
+            /* Transition applied here for position/stack scale */
+            transition: transform 0.4s ease-out, z-index 0s 0.16s, width 0.2s ease-out, height 0.2s ease-out; /* Added width/height transition */
+            transform-origin: center center;
+            backface-visibility: hidden; /* Helps performance */
+            will-change: transform, z-index, width, height; /* Hint browser about changes */
+            overflow: hidden; /* Clip image if it overflows due to scale/radius */
+        }
+
+        /* Image itself - Handles user scale, border-radius, content */
+        .stack-image {
+            display: block; /* Remove extra space below image */
+            width: 100%; /* Fill the wrapper */
+            height: 100%; /* Fill the wrapper */
+            object-fit: cover; /* Cover the container, might crop */
+            opacity: 1;
+            /* Border radius set by JS */
+            /* User scale set by JS via transform */
+            transform-origin: center center;
+             will-change: transform, border-radius; /* Hint for user scale/radius */
+             /* Transition for border-radius if desired (optional) */
+             /* transition: border-radius 0.2s ease-out; */
+        }
+
+        /* Define states for image positions and STACK scales (applied to .stack-item) */
+        /* Adjusted translateY percentages slightly to look good with varying heights */
+        .state-center { transform: translateY(0) scale(1.2); z-index: 6; }
+        .state-below-1 { transform: translateY(40%) scale(0.9); z-index: 5; } /* Adjusted */
+        .state-below-2 { transform: translateY(75%) scale(0.7); z-index: 4; } /* Adjusted */
+        .state-below-3 { transform: translateY(105%) scale(0.55); z-index: 3; }/* Adjusted */
+        .state-above-1 { transform: translateY(-40%) scale(0.9); z-index: 5; } /* Adjusted */
+        .state-above-2 { transform: translateY(-75%) scale(0.7); z-index: 4; } /* Adjusted */
+        .state-above-3 { transform: translateY(-105%) scale(0.55); z-index: 3; }/* Adjusted */
+
+    </style>
+</head>
+<body>
+
+    <div class="main-content-area">
+        <div class="controls-column">
+            <div id="control-panel">
+                <div>
+                    <label for="tempo-slider">Tempo (ms): <span id="tempo-value" class="value-display">1000</span></label>
+                    <input type="range" id="tempo-slider" min="100" max="2000" step="50" value="1000">
+                </div>
+                <div>
+                    <label for="speed-slider">Transition Speed (ms): <span id="speed-value" class="value-display">400</span></label>
+                    <input type="range" id="speed-slider" min="0" max="1000" step="50" value="400">
+                </div>
+                 <div>
+                    <label for="width-slider">Image Width (px): <span id="width-value" class="value-display">250</span></label>
+                    <input type="range" id="width-slider" min="50" max="350" step="5" value="250">
+                </div>
+                 <div>
+                    <label for="height-slider">Image Height (px): <span id="height-value" class="value-display">333</span></label>
+                    <input type="range" id="height-slider" min="50" max="500" step="5" value="333">
+                </div>
+                <div>
+                    <label for="scale-slider">Image Scale (%): <span id="scale-value" class="value-display">100</span></label>
+                    <input type="range" id="scale-slider" min="30" max="200" step="5" value="100">
+                </div>
+                <div>
+                    <label for="radius-slider">Edge Radius (px): <span id="radius-value" class="value-display">8</span></label>
+                    <input type="range" id="radius-slider" min="0" max="50" step="1" value="8"> </div>
+                <div>
+                    <label for="image-upload">Upload Images (up to 7):</label>
+                    <input type="file" id="image-upload" multiple accept="image/*">
+                </div>
+            </div>
+        </div>
+
+        <div class="preview-column">
+            <div class="stack-container">
+                <div class="stack-item"> <img src="" alt="Stack image 1" class="stack-image"> </div>
+                <div class="stack-item"> <img src="" alt="Stack image 2" class="stack-image"> </div>
+                <div class="stack-item"> <img src="" alt="Stack image 3" class="stack-image"> </div>
+                <div class="stack-item"> <img src="" alt="Stack image 4" class="stack-image"> </div>
+                <div class="stack-item"> <img src="" alt="Stack image 5" class="stack-image"> </div>
+                <div class="stack-item"> <img src="" alt="Stack image 6" class="stack-image"> </div>
+                <div class="stack-item"> <img src="" alt="Stack image 7" class="stack-image"> </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const container = document.querySelector('.stack-container');
+        // Get references to the wrapper items and the inner images
+        const stackItems = Array.from(container.querySelectorAll('.stack-item'));
+        const images = Array.from(container.querySelectorAll('.stack-image'));
+        const numItems = stackItems.length; // Should be 7
+
+        // Controls
+        const tempoSlider = document.getElementById('tempo-slider');
+        const tempoValueDisplay = document.getElementById('tempo-value');
+        const speedSlider = document.getElementById('speed-slider');
+        const speedValueDisplay = document.getElementById('speed-value');
+        const widthSlider = document.getElementById('width-slider'); // New Width
+        const widthValueDisplay = document.getElementById('width-value'); // New Width
+        const heightSlider = document.getElementById('height-slider'); // New Height
+        const heightValueDisplay = document.getElementById('height-value'); // New Height
+        const scaleSlider = document.getElementById('scale-slider'); // Image Scale
+        const scaleValueDisplay = document.getElementById('scale-value'); // Image Scale
+        const radiusSlider = document.getElementById('radius-slider'); // Edge Radius
+        const radiusValueDisplay = document.getElementById('radius-value'); // Edge Radius
+        const imageUploadInput = document.getElementById('image-upload');
+
+        // Animation & Style variables
+        let animationInterval = parseInt(tempoSlider.value, 10);
+        let transitionDuration = parseInt(speedSlider.value, 10);
+        let itemWidth = parseInt(widthSlider.value, 10); // New Width
+        let itemHeight = parseInt(heightSlider.value, 10); // New Height
+        let imageScalePercent = parseInt(scaleSlider.value, 10); // Image Scale
+        let imageBorderRadius = parseInt(radiusSlider.value, 10); // Edge Radius
+        let animationTimer = null;
+
+        // Default image URLs (using dynamic placeholders based on initial size)
+        const getDefaultImageUrls = (w, h) => [
+            `https://placehold.co/${w}x${h}/3498db/ffffff?text=Image+1`, `https://placehold.co/${w}x${h}/e74c3c/ffffff?text=Image+2`,
+            `https://placehold.co/${w}x${h}/2ecc71/ffffff?text=Image+3`, `https://placehold.co/${w}x${h}/f1c40f/ffffff?text=Image+4`,
+            `https://placehold.co/${w}x${h}/9b59b6/ffffff?text=Image+5`, `https://placehold.co/${w}x${h}/1abc9c/ffffff?text=Image+6`,
+            `https://placehold.co/${w}x${h}/e67e22/ffffff?text=Image+7`
+        ];
+        let currentImageSources = getDefaultImageUrls(itemWidth, itemHeight).map(url => ({ src: url, name: `Default ${url.split('text=')[1]}` }));
+
+        // Define the sequence of state CLASS NAMES
+        const states = [
+            'state-below-3', 'state-below-2', 'state-below-1', 'state-center',
+            'state-above-1', 'state-above-2', 'state-above-3'
+        ];
+        const numStates = states.length;
+
+        // --- Core Functions ---
+
+        // Apply transition duration style to the stack items (wrappers)
+        function applyTransitionDuration() {
+            const durationSeconds = transitionDuration / 1000;
+            stackItems.forEach(item => {
+                // Apply transition for transform (position/stack scale) and z-index to the wrapper
+                // Also include width/height transitions
+                item.style.transition = `transform ${durationSeconds}s ease-out, z-index 0s ${durationSeconds / 2.5}s, width ${durationSeconds * 0.5}s ease-out, height ${durationSeconds * 0.5}s ease-out`;
+            });
+        }
+
+        // Apply user-controlled width and height to the stack items (wrappers)
+        function applyItemSize() {
+             stackItems.forEach(item => {
+                item.style.width = `${itemWidth}px`;
+                item.style.height = `${itemHeight}px`;
+            });
+        }
+
+        // Apply user-controlled scale to the inner images
+        function applyImageScale() {
+             images.forEach(img => {
+                img.style.transform = `scale(${imageScalePercent / 100})`;
+            });
+        }
+
+         // Apply border radius to the inner images
+        function applyBorderRadius() {
+             images.forEach(img => {
+                // Apply radius to both the wrapper (for clipping) and the image
+                const parentItem = img.closest('.stack-item');
+                if (parentItem) {
+                    parentItem.style.borderRadius = `${imageBorderRadius}px`;
+                }
+                img.style.borderRadius = `${imageBorderRadius}px`;
+            });
+        }
+
+        // Update the src attributes of the actual <img> elements
+        function updateStackImageSources(updatePlaceholders = false) {
+            // Optionally update placeholder URLs if size changed significantly
+            if (updatePlaceholders) {
+                const defaultUrls = getDefaultImageUrls(itemWidth, itemHeight);
+                currentImageSources = currentImageSources.map((source, index) => {
+                    // Only update if it's still a default placeholder
+                    if (source.name.startsWith('Default')) {
+                        return { src: defaultUrls[index], name: `Default ${defaultUrls[index].split('text=')[1]}` };
+                    }
+                    return source; // Keep user-uploaded images
+                });
+            }
+
+            images.forEach((img, index) => {
+                img.src = currentImageSources[index] ? currentImageSources[index].src : '';
+                img.alt = currentImageSources[index] ? `Stack image ${index + 1}: ${currentImageSources[index].name}` : `Stack image ${index + 1}`;
+                // Handle potential loading errors for placeholders or uploaded images
+                img.onerror = () => {
+                    console.warn(`Failed to load image: ${img.src}`);
+                    img.src = `https://placehold.co/${itemWidth}x${itemHeight}/cccccc/999999?text=Load+Error`; // Fallback
+                    img.alt = `Error loading image ${index + 1}`;
+                };
+            });
+        }
+
+        function initializeStates() {
+             if (numItems !== numStates) {
+                console.warn(`Mismatch: ${numItems} stack items and ${numStates} states defined.`);
+             }
+
+            updateStackImageSources(); // Load initial images
+            applyItemSize(); // Apply current width/height to wrappers
+            applyImageScale(); // Apply current scale to inner images
+            applyBorderRadius(); // Apply current radius to inner images
+            applyTransitionDuration(); // Apply current transition speed to wrappers
+
+            stackItems.forEach((item, index) => {
+                const initialCenterIndex = states.indexOf('state-center');
+                let initialStateIndex = (initialCenterIndex + index) % numStates;
+                item.className = 'stack-item'; // Reset classes on wrapper
+                if (currentImageSources[index]) {
+                    item.classList.add(states[initialStateIndex]);
+                    item.dataset.stateIndex = initialStateIndex;
+                    item.style.opacity = '1'; // Ensure wrapper is visible
+                    item.style.pointerEvents = 'auto';
+                } else {
+                     item.style.opacity = '0';
+                     item.style.pointerEvents = 'none';
+                }
+            });
+        }
+
+        // Advance animation state by changing classes on the wrapper items
+        function advanceState() {
+            stackItems.forEach((item, index) => {
+                 if (!currentImageSources[index] || item.style.opacity === '0') return; // Skip if no image or hidden
+
+                let currentStateIndex = parseInt(item.dataset.stateIndex, 10);
+                 // Safety check if stateIndex is missing (shouldn't happen after init)
+                 if (isNaN(currentStateIndex)) {
+                     const initialCenterIndex = states.indexOf('state-center');
+                     currentStateIndex = (initialCenterIndex + index) % numStates;
+                     item.classList.add(states[currentStateIndex]); // Re-apply current state
+                     item.dataset.stateIndex = currentStateIndex;
+                     console.warn("Re-initialized state index for item", index);
+                 }
+
+                let currentStateClass = states[currentStateIndex];
+                item.classList.remove(currentStateClass); // Remove current state class
+
+                let nextStateIndex = (currentStateIndex + 1) % numStates; // Calculate next index
+                let nextStateClass = states[nextStateIndex]; // Get next state class
+
+                // Special handling for wrap-around (last to first state) to avoid visual jump if needed
+                // Currently, the CSS transition handles this smoothly. If jumpiness occurs, uncomment below.
+                /*
+                if (currentStateIndex === numStates - 1 && nextStateIndex === 0) {
+                    const currentTransition = item.style.transition;
+                    item.style.transition = 'none'; // Disable transition on wrapper for instant jump
+                    item.classList.add(nextStateClass);
+                    item.offsetHeight; // Force reflow/repaint
+                    item.style.transition = currentTransition; // Re-enable transition
+                } else {
+                    item.classList.add(nextStateClass); // Add next state class normally
+                }
+                */
+               item.classList.add(nextStateClass); // Add next state class
+               item.dataset.stateIndex = nextStateIndex; // Update stored state index
+            });
+        }
+
+        // Start or restart the animation interval timer
+        function startAnimation(newInterval) {
+            if (animationTimer) { clearInterval(animationTimer); } // Clear existing timer
+            animationInterval = newInterval;
+            // Ensure interval is slightly longer than transition to avoid conflicts
+            const effectiveInterval = (transitionDuration > 0) ? Math.max(newInterval, transitionDuration + 50) : newInterval;
+            animationTimer = setInterval(advanceState, effectiveInterval); // Start new timer
+        }
+
+        // --- Event Listeners ---
+        tempoSlider.addEventListener('input', (e) => {
+            const newTempo = parseInt(e.target.value, 10);
+            tempoValueDisplay.textContent = newTempo;
+            startAnimation(newTempo); // Restart animation with new tempo
+        });
+
+        speedSlider.addEventListener('input', (e) => {
+            transitionDuration = parseInt(e.target.value, 10);
+            speedValueDisplay.textContent = transitionDuration;
+            applyTransitionDuration(); // Apply speed to wrappers immediately
+            startAnimation(animationInterval); // Restart animation to adjust effective interval
+        });
+
+        // Listener for Width Slider (New)
+        widthSlider.addEventListener('input', (e) => {
+            itemWidth = parseInt(e.target.value, 10);
+            widthValueDisplay.textContent = itemWidth;
+            applyItemSize(); // Apply width to wrappers
+            // Optional: Update placeholders if they are still default
+            // updateStackImageSources(true);
+        });
+
+        // Listener for Height Slider (New)
+        heightSlider.addEventListener('input', (e) => {
+            itemHeight = parseInt(e.target.value, 10);
+            heightValueDisplay.textContent = itemHeight;
+            applyItemSize(); // Apply height to wrappers
+             // Optional: Update placeholders if they are still default
+            // updateStackImageSources(true);
+        });
+
+        // Listener for Image Scale Slider
+        scaleSlider.addEventListener('input', (e) => {
+            imageScalePercent = parseInt(e.target.value, 10);
+            scaleValueDisplay.textContent = imageScalePercent;
+            applyImageScale(); // Apply scale to inner images
+        });
+
+        // Listener for Edge Radius Slider
+        radiusSlider.addEventListener('input', (e) => {
+            imageBorderRadius = parseInt(e.target.value, 10);
+            radiusValueDisplay.textContent = imageBorderRadius;
+            applyBorderRadius(); // Apply radius to wrappers and inner images
+        });
+
+
+        imageUploadInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            const filesToProcess = files.slice(0, numStates); // Limit to number of slots
+
+            // Create promises to read each file as a Data URL
+            const promises = filesToProcess.map(file => {
+                return new Promise((resolve, reject) => {
+                    // Basic file type check (client-side)
+                    if (!file.type.startsWith('image/')) {
+                        console.warn(`Skipping non-image file: ${file.name}`);
+                        // Resolve with null or a specific marker if you need to handle skipped files
+                        resolve(null);
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = (event) => resolve({ src: event.target.result, name: file.name });
+                    reader.onerror = (error) => {
+                        console.error(`Error reading file ${file.name}:`, error);
+                        reject(error); // Reject the promise on error
+                    };
+                    reader.readAsDataURL(file);
+                });
+            });
+
+            Promise.all(promises)
+                .then(results => {
+                    // Filter out null results from non-image files
+                    const newSources = results.filter(result => result !== null);
+
+                    // Create the combined list, prioritizing new uploads
+                    const combinedSources = [...newSources];
+
+                    // If fewer images were uploaded than slots, fill remaining with defaults
+                    if (newSources.length < numStates) {
+                         const defaultUrls = getDefaultImageUrls(itemWidth, itemHeight);
+                         const remainingDefaults = defaultUrls
+                            .map(url => ({ src: url, name: `Default ${url.split('text=')[1]}` }))
+                            .slice(newSources.length); // Get only needed defaults
+                         combinedSources.push(...remainingDefaults);
+                    }
+
+                    // Ensure we only have numStates sources
+                    currentImageSources = combinedSources.slice(0, numStates);
+
+                    // Re-initialize the stack with the new image sources
+                    initializeStates();
+                    // Restart animation in case timing needs adjustment (though likely not needed here)
+                    startAnimation(animationInterval);
+                })
+                .catch(error => {
+                    console.error("Error processing uploaded files:", error);
+                    // Inform the user - avoid alert() in production apps
+                    // Maybe display an error message near the upload button
+                     const uploadLabel = document.querySelector('label[for="image-upload"]');
+                     if (uploadLabel) {
+                         const errorSpan = document.createElement('span');
+                         errorSpan.textContent = ' Error reading files.';
+                         errorSpan.style.color = 'red';
+                         errorSpan.style.fontSize = '0.8em';
+                         uploadLabel.appendChild(errorSpan);
+                         setTimeout(() => errorSpan.remove(), 5000); // Remove after 5s
+                     }
+                });
+
+             // Reset the file input so the same file can be selected again if needed
+             e.target.value = null;
+        });
+
+
+        // --- Initial Setup ---
+        // Set initial display values for all controls
+        widthValueDisplay.textContent = itemWidth;
+        heightValueDisplay.textContent = itemHeight;
+        scaleValueDisplay.textContent = imageScalePercent;
+        radiusValueDisplay.textContent = imageBorderRadius;
+        tempoValueDisplay.textContent = animationInterval;
+        speedValueDisplay.textContent = transitionDuration;
+
+        // Initialize the stack states, sizes, styles, and images
+        initializeStates();
+
+        // Start the animation loop
+        startAnimation(animationInterval);
+
+    </script>
+
+</body>
+</html>

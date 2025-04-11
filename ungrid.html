@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evolving Noise Grid (Independent Image/Letter Cells)</title> <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/simplex-noise@4.0.1/dist/esm/simplex-noise.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif; margin: 0; min-height: 100vh;
+            background: linear-gradient(to bottom right, #1f2937, #111827);
+            color: #e5e5e5; display: flex; flex-direction: column;
+            align-items: center; padding: 1rem; box-sizing: border-box;
+        }
+        h1 { margin-bottom: 1.5rem; font-size: 1.75rem; font-weight: 600; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
+        #main-layout { display: flex; width: 100%; max-width: 1400px; gap: 1.5rem; flex-grow: 1; align-items: flex-start; flex-wrap: wrap; /* Allow wrap on smaller screens */ }
+        #controls-container {
+            flex-basis: 300px; flex-shrink: 0; background-color: rgba(55, 65, 81, 0.65);
+            backdrop-filter: blur(12px);
+            border-radius: 0.75rem; padding: 1.5rem; border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            height: fit-content; max-height: calc(100vh - 8rem);
+            overflow-y: auto;
+        }
+        #controls { display: flex; flex-direction: column; gap: 1.5rem; align-items: stretch; }
+        .control-item { display: flex; flex-direction: column; align-items: flex-start; color: #d1d5db; font-size: 0.875rem; }
+        .control-item label:not(.radio-label):not(.checkbox-label):not(.button-label):not(.color-label) {
+            margin-bottom: 0.5rem; font-weight: 500; width: 100%; display: flex; justify-content: space-between;
+        }
+        .control-item label .value-display { font-weight: 600; color: #ffffff; }
+        .control-item input[type="range"] { width: 100%; cursor: pointer; accent-color: #60a5fa; margin-top: 0.25rem; }
+        .control-item.checkbox-item, .control-item.radio-group { flex-direction: row; align-items: center; justify-content: flex-start; }
+        .control-item.radio-group { flex-wrap: wrap; gap: 0 1rem; }
+        .control-item .radio-label, .control-item .checkbox-label { margin-bottom: 0; margin-left: 0.4rem; order: 2; font-weight: normal; cursor: pointer; }
+        .control-item input[type="checkbox"], .control-item input[type="radio"] { order: 1; cursor: pointer; width: 1rem; height: 1rem; accent-color: #60a5fa; }
+        .control-item.file-upload-item, .control-item.animation-action-controls, .control-item.recording-controls, .control-item.duration-controls, .control-item.letter-controls {
+            align-items: center; margin-top: 0.5rem; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 0.5rem;
+        }
+         /* Combined button styles */
+         .button-label, #startButton, #startRecordButton, #stopRecordButton {
+             display: inline-block; background-color: rgba(75, 85, 99, 0.8); color: #e5e5e5;
+             padding: 0.5rem 1rem; border-radius: 0.375rem; cursor: pointer; transition: background-color 0.2s, color 0.2s;
+             font-size: 0.875rem; border: 1px solid rgba(255, 255, 255, 0.1); text-align: center; box-sizing: border-box;
+             width: auto;
+        }
+        #startButton { min-width: 180px; }
+
+        .button-label:hover, #startButton:hover:not(:disabled),
+        #startRecordButton:hover:not(:disabled), #stopRecordButton:hover:not(:disabled) {
+             background-color: rgba(107, 114, 128, 0.8);
+        }
+        #startButton.stop-mode {
+             background-color: rgba(239, 68, 68, 0.7); border-color: rgba(255, 150, 150, 0.2);
+        }
+        #startButton.stop-mode:hover:not(:disabled) {
+             background-color: rgba(220, 38, 38, 0.8);
+        }
+
+        #startButton:disabled, #startRecordButton:disabled, #stopRecordButton:disabled {
+            background-color: rgba(55, 65, 81, 0.5); color: rgba(229, 229, 229, 0.5);
+            cursor: not-allowed; border-color: rgba(255, 255, 255, 0.05);
+        }
+        #bgUpload, #cellImgUpload { display: none; }
+        #endDurationInput, #startDurationInput, #overallDurationInput {
+             width: 60px; background-color: rgba(31, 41, 55, 0.8); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0.375rem; padding: 0.3rem 0.5rem; text-align: right; margin-left: 0.5rem; color: #e5e5e5;
+        }
+        #letterInput {
+             flex-grow: 1; background-color: rgba(31, 41, 55, 0.8); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0.375rem; padding: 0.4rem 0.6rem; color: #e5e5e5; font-size: 0.875rem; min-width: 100px;
+        }
+        .color-picker-item { display: flex; align-items: center; gap: 0.5rem; }
+        .color-picker-item label { margin-bottom: 0; font-weight: normal; }
+        .color-picker-item input[type="color"] {
+            width: 28px; height: 28px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0.25rem; cursor: pointer; padding: 2px; background-color: transparent;
+            /* Hide default color input appearance */
+            -webkit-appearance: none; -moz-appearance: none; appearance: none;
+        }
+        /* Style the color input's inner part */
+        .color-picker-item input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; border-radius: 0.1rem; }
+        .color-picker-item input[type="color"]::-webkit-color-swatch { border: none; border-radius: 0.1rem; }
+        .color-picker-item input[type="color"]::-moz-color-swatch { border: none; border-radius: 0.1rem; }
+
+        #canvas-container { flex-grow: 1; display: flex; justify-content: center; align-items: center; position: relative; min-width: 0; align-self: flex-start; }
+        canvas#noiseCanvas {
+            display: block; max-width: 100%; max-height: calc(100vh - 6rem); height: auto; width: auto;
+            border-radius: 0.75rem; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            background-color: #000000; /* Default canvas background */
+        }
+        #loading {
+            position: absolute; color: #ffffff; background-color: rgba(0,0,0,0.7); padding: 0.75rem 1.25rem; border-radius: 0.5rem; font-size: 1.25rem; text-align: center; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; display: none;
+        }
+        .control-group-label { font-weight: 600; color: #ffffff; margin-bottom: 0.75rem; width: 100%; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 0.25rem; font-size: 0.9rem; }
+        #stopRecordButton { display: none; }
+
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <h1>Evolving Noise Grid</h1>
+
+    <div id="main-layout">
+        <div id="controls-container">
+            <div id="controls">
+                 <div class="control-item">
+                    <label for="speedControl">Speed <span id="speedValue" class="value-display">5</span></label>
+                    <input type="range" id="speedControl" min="1" max="20" value="5" step="1">
+                </div>
+                <div class="control-item">
+                    <label for="gridAmountControl">Grid Amount <span id="gridAmountValue" class="value-display">30</span></label>
+                    <input type="range" id="gridAmountControl" min="10" max="200" value="30" step="1">
+                </div>
+                <div class="control-item">
+                    <label for="fillControl">Max Fill (%) <span id="fillValue" class="value-display">50</span></label>
+                    <input type="range" id="fillControl" min="0" max="100" value="50" step="1">
+                </div>
+                <div class="control-item checkbox-item">
+                     <input type="checkbox" id="simplifyControl">
+                     <label for="simplifyControl" class="checkbox-label">Simplify Pattern</label>
+                </div>
+
+                 <div class="control-group-label">Background</div>
+                 <div class="control-item file-upload-item">
+                     <label id="bgUploadLabel" for="bgUpload" class="button-label">Upload Background</label>
+                     <input type="file" id="bgUpload" accept="image/*">
+                 </div>
+                 <div class="control-item">
+                    <label style="margin-bottom: 0.5rem;">Animate On:</label>
+                    <div class="radio-group">
+                        <input type="radio" id="animEverywhere" name="animArea" value="everywhere" checked>
+                        <label for="animEverywhere" class="radio-label">Everywhere</label>
+                        <input type="radio" id="animLight" name="animArea" value="light">
+                        <label for="animLight" class="radio-label">Light Areas</label>
+                        <input type="radio" id="animDark" name="animArea" value="dark">
+                        <label for="animDark" class="radio-label">Dark Areas</label>
+                    </div>
+                 </div>
+
+                 <div class="control-group-label">Cell Image</div>
+                 <div class="control-item file-upload-item">
+                     <label id="cellImgUploadLabel" for="cellImgUpload" class="button-label">Upload Cell Images</label>
+                     <input type="file" id="cellImgUpload" accept="image/*" multiple>
+                     <span class="text-xs text-gray-400 block w-full text-center mt-1">Images used for active cells</span>
+                 </div>
+
+                 <div class="control-group-label">Letter Cells</div> <div class="control-item">
+                     <label for="letterInput" style="margin-bottom: 0.5rem;">Letters for Cells:</label> <input type="text" id="letterInput" placeholder="Type letters here (optional)">
+                     <span class="text-xs text-gray-400 block w-full text-left mt-1">If letters are provided, some active cells may display a letter instead of an image.</span> </div>
+                 <div class="control-item letter-controls">
+                     <div class="color-picker-item">
+                         <input type="color" id="letterColorInput" value="#FFFFFF">
+                         <label for="letterColorInput" class="color-label">Letter Color</label>
+                     </div>
+                     <div class="color-picker-item">
+                         <input type="color" id="letterBgColorInput" value="#000000">
+                         <label for="letterBgColorInput" class="color-label">Letter Cell BG</label> </div>
+                 </div>
+
+
+                 <div class="control-group-label">Timed Sequence & Recording</div>
+                  <div class="control-item duration-controls">
+                     <input type="number" id="overallDurationInput" min="0.1" step="0.1" value="5.0">
+                     <label for="overallDurationInput" style="margin-left: 0.5rem;">Sequence Duration (sec)</label>
+                 </div>
+                 <div class="control-item checkbox-item">
+                     <input type="checkbox" id="startAnimationControl">
+                     <label for="startAnimationControl" class="checkbox-label">Enable Start Fade-In</label>
+                 </div>
+                 <div class="control-item duration-controls">
+                     <input type="number" id="startDurationInput" min="0.1" step="0.1" value="1.0">
+                     <label for="startDurationInput" style="margin-left: 0.5rem;">Start Duration (sec)</label>
+                 </div>
+                  <div class="control-item checkbox-item">
+                     <input type="checkbox" id="endAnimationControl">
+                     <label for="endAnimationControl" class="checkbox-label">Enable End Fade-Out</label>
+                 </div>
+                 <div class="control-item duration-controls">
+                     <input type="number" id="endDurationInput" min="0.1" step="0.1" value="2.0">
+                     <label for="endDurationInput" style="margin-left: 0.5rem;">End Duration (sec)</label>
+                 </div>
+                 <div class="control-item animation-action-controls">
+                     <button id="startButton" class="button-label">Start Sequence & Record</button>
+                 </div>
+
+                 <div class="control-group-label">Manual Recording</div>
+                 <div class="control-item recording-controls">
+                     <button id="startRecordButton" class="button-label">Start Recording Only</button>
+                     <button id="stopRecordButton" class="button-label" disabled>Stop Recording</button>
+                 </div>
+            </div>
+        </div>
+
+        <div id="canvas-container">
+            <div id="loading">Loading...</div>
+            <canvas id="noiseCanvas"></canvas>
+            <canvas id="hiddenBgCanvas" style="display: none;"></canvas>
+        </div>
+    </div>
+
+
+    <script type="module">
+        import { createNoise3D } from 'https://cdn.jsdelivr.net/npm/simplex-noise@4.0.1/dist/esm/simplex-noise.js';
+
+        // --- Constants ---
+        const INITIAL_CANVAS_SIZE = 600;
+        const MAX_INTERNAL_RESOLUTION = 1200;
+        const OVERLAP_FIX = 1.1; // Slightly larger fill to avoid gaps
+        const BG_BRIGHTNESS_THRESHOLD = 128;
+        const END_THRESHOLD_PERCENT = 0.01;
+        const ACCELERATION_FACTOR = 2;
+        const START_ACCELERATION_FACTOR = 1;
+        const RECORDING_FRAMERATE = 30;
+        const RECORDING_MIME_TYPE = 'video/webm;codecs=vp9';
+        const RECORDING_VIDEO_BITRATE = 5000000; // 5 Mbps
+        const DEFAULT_LETTER_COLOR = '#FFFFFF';
+        const DEFAULT_LETTER_BG_COLOR = '#000000';
+        const IMAGE_VS_LETTER_PROBABILITY = 0.5; // 0.5 = 50% chance of showing image if both available
+
+        // --- Noise Generation ---
+        const noise3D = createNoise3D(Math.random);
+
+        // --- Canvas Elements ---
+        const canvas = document.getElementById('noiseCanvas');
+        const ctx = canvas.getContext('2d');
+        const hiddenBgCanvas = document.getElementById('hiddenBgCanvas');
+        const hiddenCtx = hiddenBgCanvas.getContext('2d', { willReadFrequently: true });
+        canvas.width = INITIAL_CANVAS_SIZE;
+        canvas.height = INITIAL_CANVAS_SIZE;
+        hiddenBgCanvas.width = canvas.width;
+        hiddenBgCanvas.height = canvas.height;
+
+        // --- UI Elements ---
+        const loadingMessage = document.getElementById('loading');
+        const speedControl = document.getElementById('speedControl');
+        const speedValueSpan = document.getElementById('speedValue');
+        const gridAmountControl = document.getElementById('gridAmountControl');
+        const gridAmountValueSpan = document.getElementById('gridAmountValue');
+        const fillControl = document.getElementById('fillControl');
+        const fillValueSpan = document.getElementById('fillValue');
+        const simplifyControl = document.getElementById('simplifyControl');
+        const bgUploadInput = document.getElementById('bgUpload');
+        const cellImgUploadInput = document.getElementById('cellImgUpload');
+        const animAreaRadios = document.querySelectorAll('input[name="animArea"]');
+        const startButton = document.getElementById('startButton');
+        const overallDurationInput = document.getElementById('overallDurationInput');
+        const startAnimationControl = document.getElementById('startAnimationControl');
+        const startDurationInput = document.getElementById('startDurationInput');
+        const endAnimationControl = document.getElementById('endAnimationControl');
+        const endDurationInput = document.getElementById('endDurationInput');
+        const startRecordButton = document.getElementById('startRecordButton');
+        const stopRecordButton = document.getElementById('stopRecordButton');
+        const letterInput = document.getElementById('letterInput');
+        const letterColorInput = document.getElementById('letterColorInput');
+        const letterBgColorInput = document.getElementById('letterBgColorInput');
+
+
+        // --- State Variables ---
+        let time = 0;
+        let timeStep = parseFloat(speedControl.value) * 0.001;
+        let gridAmount = parseInt(gridAmountControl.value);
+        let calculatedCellSize = canvas.width / gridAmount;
+        let numCellsX = gridAmount;
+        let numCellsY = Math.ceil(canvas.height / calculatedCellSize);
+        let noiseThreshold = 1.0 - (parseFloat(fillControl.value) / 100.0);
+        let isSimplified = simplifyControl.checked;
+        let cellImages = []; // Array of loaded cell images
+        let isCellImageLoading = false;
+        let bgImage = null;
+        let bgImageForDrawing = null;
+        let bgPixelData = null;
+        let bgPixelDataWidth = 0;
+        let animationAreaMode = 'everywhere';
+
+        // Letter Cell State
+        let currentLetters = letterInput.value;
+        let letterColor = letterColorInput.value;
+        let letterBgColor = letterBgColorInput.value;
+
+        // Animation sequence state
+        let isStarting = false;
+        let isMainLoopActive = false;
+        let isEnding = false;
+        let isBackgroundLoopActive = false;
+
+        let startAnimationEnabled = startAnimationControl.checked;
+        let endAnimationEnabled = endAnimationControl.checked;
+        let startAnimationDuration = parseFloat(startDurationInput.value);
+        let endAnimationDuration = parseFloat(endDurationInput.value);
+        let overallDuration = parseFloat(overallDurationInput.value);
+
+        // Timestamps for sequence control
+        let startAnimationStartTime = 0;
+        let mainAnimationStartTime = 0;
+        let mainAnimationEndTime = 0;
+        let fadeOutStartTime = 0;
+
+        // requestAnimationFrame IDs
+        let startAnimationFrameId = null;
+        let animationFrameId = null;
+        let fadeOutFrameId = null;
+        let backgroundFrameId = null;
+
+        // Fade-out helpers
+        let initialVisibleCount = 0;
+        // NEW State Structure: Stores assigned data for each cell (type and content)
+        // Map<`${x},${y}`, { type: 'image' | 'letter', content: Image | string, fg?: string, bg?: string }>
+        let assignedCellData = new Map();
+
+        // Recording state
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let isRecording = false;
+        let isSequenceRecording = false;
+        let mediaStream = null;
+
+        // Noise frequency parameters
+        const BASE_FREQ = 0.008;
+        const FREQ_AMPLITUDE = 0.004;
+        const FREQ_OSC_FREQ = 0.1;
+        const MIN_FREQ = 0.001;
+        const SIMPLIFY_FACTOR = 0.25;
+
+        // --- Control Update Functions ---
+        function updateSpeed() { timeStep = parseFloat(speedControl.value) * 0.001; speedValueSpan.textContent = speedControl.value; }
+        function updateGridParams() {
+            gridAmount = parseInt(gridAmountControl.value); if (gridAmount <= 0) gridAmount = 1;
+            gridAmountValueSpan.textContent = gridAmount;
+            calculatedCellSize = canvas.width / gridAmount;
+            numCellsX = gridAmount;
+            numCellsY = Math.ceil(canvas.height / calculatedCellSize);
+            bgPixelData = null;
+            assignedCellData.clear(); // Clear assigned data as grid changed
+            console.log(`Grid updated: ${numCellsX}x${numCellsY}, Cell size: ${calculatedCellSize.toFixed(2)}`);
+        }
+        function updateFillPercentage() { noiseThreshold = 1.0 - (parseFloat(fillControl.value) / 100.0); fillValueSpan.textContent = fillControl.value; }
+        function updateSimplify() { isSimplified = simplifyControl.checked; }
+        function updateAnimationAreaMode() { animationAreaMode = document.querySelector('input[name="animArea"]:checked').value; }
+        function updateStartAnimationEnabled() { startAnimationEnabled = startAnimationControl.checked; }
+        function updateEndAnimationEnabled() { endAnimationEnabled = endAnimationControl.checked; }
+        function updateStartAnimationDuration() { startAnimationDuration = parseFloat(startDurationInput.value) || 0.1; if(startAnimationDuration <= 0) startAnimationDuration = 0.1; startDurationInput.value = startAnimationDuration.toFixed(1); }
+        function updateEndAnimationDuration() { endAnimationDuration = parseFloat(endDurationInput.value) || 0.1; if(endAnimationDuration <= 0) endAnimationDuration = 0.1; endDurationInput.value = endAnimationDuration.toFixed(1); }
+        function updateOverallDuration() { overallDuration = parseFloat(overallDurationInput.value) || 0.1; if(overallDuration <= 0) overallDuration = 0.1; overallDurationInput.value = overallDuration.toFixed(1); }
+        function updateCurrentLetters() { currentLetters = letterInput.value; }
+        function updateLetterColor() { letterColor = letterColorInput.value; }
+        function updateLetterBgColor() { letterBgColor = letterBgColorInput.value; }
+
+
+        // --- Image Loading ---
+        function loadImageFromFile(file) {
+             return new Promise((resolve, reject) => {
+                 if (file && file.type.startsWith('image/')) {
+                     const reader = new FileReader();
+                     reader.onload = (e) => {
+                         const img = new Image();
+                         img.onload = () => resolve(img);
+                         img.onerror = (err) => reject(new Error(`Failed to load image data: ${file.name}. Error: ${err}`));
+                         img.src = e.target.result;
+                     };
+                     reader.onerror = (err) => reject(new Error(`Failed to read file: ${file.name}. Error: ${err}`));
+                     reader.readAsDataURL(file);
+                 } else {
+                     reject(new Error(`File is not an image: ${file ? file.name : 'undefined'}`));
+                 }
+             });
+        }
+
+        function handleBgUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            loadingMessage.textContent = 'Loading Background...';
+            loadingMessage.style.display = 'block';
+            startButton.disabled = true; startRecordButton.disabled = true;
+
+            loadImageFromFile(file)
+                .then(img => {
+                    bgImage = img; bgImageForDrawing = new Image(); bgImageForDrawing.src = img.src;
+                    bgImageForDrawing.onload = () => {
+                        const imgWidth = bgImage.naturalWidth; const imgHeight = bgImage.naturalHeight;
+                        const aspectRatio = imgWidth / imgHeight;
+                        let targetWidth = imgWidth; let targetHeight = imgHeight;
+                        if (targetWidth > MAX_INTERNAL_RESOLUTION) { targetWidth = MAX_INTERNAL_RESOLUTION; targetHeight = targetWidth / aspectRatio; }
+                        if (targetHeight > MAX_INTERNAL_RESOLUTION) { targetHeight = MAX_INTERNAL_RESOLUTION; targetWidth = targetHeight * aspectRatio; }
+                        canvas.width = Math.round(targetWidth); canvas.height = Math.round(targetHeight);
+                        hiddenBgCanvas.width = canvas.width; hiddenBgCanvas.height = canvas.height;
+                        hiddenCtx.drawImage(bgImage, 0, 0, hiddenBgCanvas.width, hiddenBgCanvas.height);
+                        bgPixelData = null; canvas.style.backgroundImage = 'none'; updateGridParams();
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(bgImageForDrawing, 0, 0, canvas.width, canvas.height); // Draw initial background
+                        console.log("Background image loaded and set.");
+                    };
+                    bgImageForDrawing.onerror = () => {
+                         console.error("Failed to load background image for drawing."); bgImage = null; bgImageForDrawing = null;
+                         canvas.style.backgroundImage = 'none'; ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    }
+                })
+                .catch(error => {
+                    console.error("Background image load failed:", error); bgImage = null; bgImageForDrawing = null;
+                    canvas.style.backgroundImage = 'none'; ctx.clearRect(0, 0, canvas.width, canvas.height);
+                 })
+                .finally(() => {
+                    loadingMessage.style.display = 'none';
+                    if (!isSequenceActive()) { startButton.disabled = false; }
+                    if (!isRecording) { startRecordButton.disabled = false; }
+                    event.target.value = null;
+                 });
+        }
+
+        function handleCellImgUpload(event) {
+             const files = event.target.files;
+             if (!files || files.length === 0) return;
+             isCellImageLoading = true; cellImages = []; assignedCellData.clear();
+             loadingMessage.textContent = `Loading ${files.length} Cell Image(s)...`;
+             loadingMessage.style.display = 'block';
+             startButton.disabled = true; startRecordButton.disabled = true;
+             const loadPromises = Array.from(files).map(file => loadImageFromFile(file));
+             Promise.allSettled(loadPromises)
+                 .then(results => {
+                     cellImages = results.filter(r => r.status === 'fulfilled').map(r => r.value);
+                     console.log(`${cellImages.length} cell image(s) loaded successfully.`);
+                     if (results.length > cellImages.length) {
+                         console.warn(`${results.length - cellImages.length} cell image(s) failed to load.`);
+                         results.filter(r => r.status === 'rejected').forEach(r => console.error("Cell load error:", r.reason));
+                     }
+                 })
+                 .catch(error => { console.error("Unexpected error during cell image loading:", error); cellImages = []; })
+                 .finally(() => {
+                     isCellImageLoading = false; loadingMessage.style.display = 'none';
+                     if (!isSequenceActive()) { startButton.disabled = false; }
+                     if (!isRecording) { startRecordButton.disabled = false; }
+                     event.target.value = null;
+                 });
+        }
+
+        // --- Pixel Data & Drawing ---
+        function getBgPixelBrightness(canvasX, canvasY) {
+            if (!bgImage || !hiddenCtx) return 128;
+            if (!bgPixelData || bgPixelDataWidth !== hiddenBgCanvas.width) {
+                 try {
+                    if (hiddenBgCanvas.width > 0 && hiddenBgCanvas.height > 0) {
+                        bgPixelData = hiddenCtx.getImageData(0, 0, hiddenBgCanvas.width, hiddenBgCanvas.height).data;
+                        bgPixelDataWidth = hiddenBgCanvas.width;
+                    } else { bgPixelData = null; return 128; }
+                 } catch (e) { console.error("Error getting image data from hidden canvas:", e); bgPixelData = null; return 128; }
+            }
+             if (!bgPixelData) return 128;
+            const x = Math.max(0, Math.min(Math.floor(canvasX), hiddenBgCanvas.width - 1));
+            const y = Math.max(0, Math.min(Math.floor(canvasY), hiddenBgCanvas.height - 1));
+            const index = (y * bgPixelDataWidth + x) * 4;
+            const r = bgPixelData[index]; const g = bgPixelData[index + 1]; const b = bgPixelData[index + 2];
+            return 0.299 * r + 0.587 * g + 0.114 * b;
+        }
+
+        /**
+         * Draws a single cell based on its assigned type (image or letter).
+         * @param {number} cellX - The column index of the cell.
+         * @param {number} cellY - The row index of the cell.
+         * @param {object | null} data - The data object for the cell from assignedCellData.
+         * Expected structure: { type: 'image' | 'letter', content: Image | string, fg?: string, bg?: string }
+         */
+        function drawCell(cellX, cellY, data) {
+            if (!data) return; // Should not happen if called correctly, but safety first
+
+            const drawX = cellX * calculatedCellSize;
+            const drawY = cellY * calculatedCellSize;
+            const size = calculatedCellSize;
+
+            // --- Draw based on cell type ---
+            if (data.type === 'image') {
+                const img = data.content; // Content is the Image object
+                if (img && img.complete && img.naturalWidth > 0) {
+                    try {
+                        // Draw image slightly larger to prevent gaps
+                        ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight,
+                                      drawX, drawY, size + OVERLAP_FIX, size + OVERLAP_FIX);
+                    } catch (e) {
+                        console.warn(`Error drawing image cell ${cellX},${cellY}:`, e);
+                        // Optionally draw placeholder on error
+                    }
+                }
+            } else if (data.type === 'letter') {
+                const letter = data.content; // Content is the letter string
+                const fg = data.fg || DEFAULT_LETTER_COLOR;
+                const bg = data.bg || DEFAULT_LETTER_BG_COLOR;
+
+                // 1. Draw Letter Background Color
+                ctx.fillStyle = bg;
+                // Draw slightly larger to prevent gaps
+                ctx.fillRect(drawX, drawY, size + OVERLAP_FIX, size + OVERLAP_FIX);
+
+                // 2. Draw Letter Text
+                ctx.fillStyle = fg;
+                const fontSize = Math.max(8, size * 0.75);
+                ctx.font = `bold ${fontSize}px Inter, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(letter, drawX + size / 2, drawY + size / 2 + fontSize * 0.05);
+            }
+        }
+
+
+        function drawFrame(currentNoiseThreshold) {
+             time += timeStep;
+             let currentFreq = BASE_FREQ + FREQ_AMPLITUDE * Math.sin(FREQ_OSC_FREQ * time * 2 * Math.PI);
+             currentFreq = Math.max(MIN_FREQ, currentFreq);
+             const effectiveFreq = isSimplified ? BASE_FREQ * SIMPLIFY_FACTOR : currentFreq;
+
+             // Clear and Draw Main Background
+             ctx.clearRect(0, 0, canvas.width, canvas.height);
+             if (bgImageForDrawing && bgImageForDrawing.complete && bgImageForDrawing.naturalWidth > 0) {
+                 ctx.drawImage(bgImageForDrawing, 0, 0, canvas.width, canvas.height);
+             }
+             bgPixelData = null;
+
+             // Iterate and Draw Active Cells
+             for (let cellY = 0; cellY < numCellsY; cellY++) {
+                 for (let cellX = 0; cellX < numCellsX; cellX++) {
+                     const sampleX = (cellX + 0.5) * calculatedCellSize;
+                     const sampleY = (cellY + 0.5) * calculatedCellSize;
+
+                     let shouldAnimate = true;
+                     if (animationAreaMode !== 'everywhere' && bgImage) {
+                         const brightness = getBgPixelBrightness(sampleX, sampleY);
+                         if (animationAreaMode === 'light' && brightness <= BG_BRIGHTNESS_THRESHOLD) shouldAnimate = false;
+                         if (animationAreaMode === 'dark' && brightness > BG_BRIGHTNESS_THRESHOLD) shouldAnimate = false;
+                     }
+                     if (!shouldAnimate) continue;
+
+                     const noiseX = sampleX * effectiveFreq; const noiseY = sampleY * effectiveFreq; const noiseZ = time;
+                     const noiseVal = noise3D(noiseX, noiseY, noiseZ);
+                     const normalizedNoise = (noiseVal + 1) / 2;
+
+                     const isOn = normalizedNoise > currentNoiseThreshold;
+                     const cellKey = `${cellX},${cellY}`;
+                     let cellDataToDraw = null; // Store the data for the cell we decide to draw
+
+                     if (isOn) {
+                         if (!assignedCellData.has(cellKey)) {
+                             // Cell just turned on, decide what type to assign
+                             const imagesAvailable = cellImages.length > 0 && !isCellImageLoading;
+                             const lettersAvailable = currentLetters.length > 0;
+                             let assignedType = null;
+                             let assignedContent = null;
+                             let assignedFg = null;
+                             let assignedBg = null;
+
+                             if (imagesAvailable && lettersAvailable) {
+                                 // Both available: Randomly choose
+                                 if (Math.random() < IMAGE_VS_LETTER_PROBABILITY) {
+                                     assignedType = 'image';
+                                 } else {
+                                     assignedType = 'letter';
+                                 }
+                             } else if (imagesAvailable) {
+                                 assignedType = 'image';
+                             } else if (lettersAvailable) {
+                                 assignedType = 'letter';
+                             }
+
+                             // Assign content based on chosen type
+                             if (assignedType === 'image') {
+                                 const imgIndex = Math.floor(Math.random() * cellImages.length);
+                                 assignedContent = cellImages[imgIndex];
+                             } else if (assignedType === 'letter') {
+                                 const letterIndex = Math.floor(Math.random() * currentLetters.length);
+                                 assignedContent = currentLetters[letterIndex];
+                                 assignedFg = letterColor; // Store colors only for letters
+                                 assignedBg = letterBgColor;
+                             }
+
+                             // Store the assignment if a type was chosen
+                             if (assignedType) {
+                                 const newCellData = { type: assignedType, content: assignedContent, fg: assignedFg, bg: assignedBg };
+                                 assignedCellData.set(cellKey, newCellData);
+                                 cellDataToDraw = newCellData; // Mark this cell for drawing
+                             }
+
+                         } else {
+                             // Cell was already on, retrieve existing data
+                             cellDataToDraw = assignedCellData.get(cellKey);
+                             // Update colors if it's a letter cell
+                             if (cellDataToDraw.type === 'letter') {
+                                 cellDataToDraw.fg = letterColor;
+                                 cellDataToDraw.bg = letterBgColor;
+                             }
+                         }
+
+                         // Draw the cell using its assigned data (if any)
+                         if (cellDataToDraw) {
+                             drawCell(cellX, cellY, cellDataToDraw);
+                         }
+
+                     } else {
+                         // Cell turned off, remove assignment
+                         if (assignedCellData.has(cellKey)) {
+                             assignedCellData.delete(cellKey);
+                         }
+                     }
+                 }
+             }
+        }
+
+        // --- Animation Loop Control ---
+        function isSequenceActive() { return isStarting || isMainLoopActive || isEnding; }
+
+        function completeSequence() {
+             console.log("Timed sequence complete.");
+             isSequenceRecording = false;
+             if (isRecording && mediaRecorder && mediaRecorder.state === 'recording') {
+                 handleStopRecording(false);
+             }
+             startButton.textContent = "Start Sequence & Record";
+             startButton.classList.remove('stop-mode');
+             startButton.disabled = false;
+             if (!isRecording) {
+                startRecordButton.disabled = false;
+             }
+             isStarting = false; isMainLoopActive = false; isEnding = false;
+             startBackgroundAnimation();
+        }
+
+         function startBackgroundAnimation() {
+            if (isBackgroundLoopActive || isSequenceActive()) return;
+            console.log("Starting background animation loop.");
+            isBackgroundLoopActive = true;
+            if (backgroundFrameId) cancelAnimationFrame(backgroundFrameId);
+            backgroundFrameId = requestAnimationFrame(backgroundAnimate);
+        }
+
+        function backgroundAnimate() {
+            if (!isBackgroundLoopActive) {
+                 if (backgroundFrameId) cancelAnimationFrame(backgroundFrameId);
+                 backgroundFrameId = null; return;
+            }
+            backgroundFrameId = requestAnimationFrame(backgroundAnimate);
+            drawFrame(noiseThreshold); // Draw with standard threshold
+        }
+
+        function startIntroAnimation(timestamp) {
+             if (!isStarting || !startAnimationFrameId) {
+                 if (startAnimationFrameId) cancelAnimationFrame(startAnimationFrameId);
+                 startAnimationFrameId = null; return;
+             }
+             const elapsedTime = (timestamp - startAnimationStartTime) / 1000;
+
+             if (elapsedTime >= startAnimationDuration) {
+                 cancelAnimationFrame(startAnimationFrameId); startAnimationFrameId = null;
+                 isStarting = false; isMainLoopActive = true;
+                 mainAnimationStartTime = performance.now();
+                 mainAnimationEndTime = mainAnimationStartTime + (overallDuration * 1000);
+                 if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                 animationFrameId = requestAnimationFrame(animate);
+                 console.log("Fade-in complete, starting main animation."); return;
+             }
+
+             startAnimationFrameId = requestAnimationFrame(startIntroAnimation);
+             const timerProgress = Math.min(1.0, elapsedTime / startAnimationDuration);
+             const adjustedNoiseThreshold = 1.0 - (1.0 - noiseThreshold) * Math.pow(timerProgress, START_ACCELERATION_FACTOR);
+             drawFrame(adjustedNoiseThreshold); // Draw with adjusted threshold
+        }
+
+        function animate(timestamp) {
+            if (!isMainLoopActive || isEnding || isStarting || !animationFrameId) {
+                 if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                 animationFrameId = null; return;
+            }
+
+            if (timestamp >= mainAnimationEndTime) {
+                 cancelAnimationFrame(animationFrameId); animationFrameId = null;
+                 isMainLoopActive = false; console.log("Main animation duration complete.");
+                 if (endAnimationEnabled) {
+                     startFadeOut();
+                 } else {
+                     ctx.clearRect(0, 0, canvas.width, canvas.height);
+                     if (bgImageForDrawing) ctx.drawImage(bgImageForDrawing, 0, 0, canvas.width, canvas.height);
+                     assignedCellData.clear();
+                     completeSequence();
+                 }
+                 return;
+            }
+
+            animationFrameId = requestAnimationFrame(animate);
+            drawFrame(noiseThreshold); // Draw with standard threshold
+        }
+
+        function startFadeOut() {
+            if (isEnding || !endAnimationEnabled) return;
+            isEnding = true; isMainLoopActive = false;
+            if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; }
+            if (fadeOutFrameId) { cancelAnimationFrame(fadeOutFrameId); fadeOutFrameId = null; }
+            console.log("Starting end fade-out animation...");
+            initialVisibleCount = assignedCellData.size;
+            console.log(`End fade started with ${initialVisibleCount} cells.`);
+            fadeOutStartTime = performance.now();
+            fadeOutFrameId = requestAnimationFrame(fadeOutAnimate);
+        }
+
+        function fadeOutAnimate(timestamp) {
+            if (!isEnding || !fadeOutFrameId) {
+                 if (fadeOutFrameId) cancelAnimationFrame(fadeOutFrameId);
+                 fadeOutFrameId = null; return;
+            }
+            const elapsedTime = (timestamp - fadeOutStartTime) / 1000;
+
+            if (elapsedTime >= endAnimationDuration) {
+                cancelAnimationFrame(fadeOutFrameId); fadeOutFrameId = null; isEnding = false;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                 if (bgImageForDrawing) ctx.drawImage(bgImageForDrawing, 0, 0, canvas.width, canvas.height);
+                assignedCellData.clear();
+                console.log("Fade-out duration complete.");
+                completeSequence();
+                return;
+            }
+
+            fadeOutFrameId = requestAnimationFrame(fadeOutAnimate);
+            const timerProgress = Math.min(1.0, elapsedTime / endAnimationDuration);
+            const adjustedNoiseThreshold = noiseThreshold + (1.0 - noiseThreshold) * Math.pow(timerProgress, ACCELERATION_FACTOR);
+
+            // Redraw frame with adjusted threshold (Fade-out logic)
+            time += timeStep;
+            let currentFreq = BASE_FREQ + FREQ_AMPLITUDE * Math.sin(FREQ_OSC_FREQ * time * 2 * Math.PI);
+            currentFreq = Math.max(MIN_FREQ, currentFreq);
+            const effectiveFreq = isSimplified ? BASE_FREQ * SIMPLIFY_FACTOR : currentFreq;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (bgImageForDrawing) ctx.drawImage(bgImageForDrawing, 0, 0, canvas.width, canvas.height);
+            bgPixelData = null;
+
+            let currentVisibleCount = 0;
+            const cellsToRemove = [];
+
+             assignedCellData.forEach((cellData, cellKey) => {
+                 const [cellX, cellY] = cellKey.split(',').map(Number);
+                 const sampleX = (cellX + 0.5) * calculatedCellSize;
+                 const sampleY = (cellY + 0.5) * calculatedCellSize;
+
+                 let shouldAnimate = true;
+                 if (animationAreaMode !== 'everywhere' && bgImage) {
+                     const brightness = getBgPixelBrightness(sampleX, sampleY);
+                     if (animationAreaMode === 'light' && brightness <= BG_BRIGHTNESS_THRESHOLD) shouldAnimate = false;
+                     if (animationAreaMode === 'dark' && brightness > BG_BRIGHTNESS_THRESHOLD) shouldAnimate = false;
+                 }
+                 if (!shouldAnimate) { cellsToRemove.push(cellKey); return; }
+
+                 const noiseX = sampleX * effectiveFreq; const noiseY = sampleY * effectiveFreq; const noiseZ = time;
+                 const isPotentiallyOn = ((noise3D(noiseX, noiseY, noiseZ) + 1) / 2) > adjustedNoiseThreshold;
+
+                 if (isPotentiallyOn) {
+                     // Cell remains on: Update colors if letter, then draw
+                     if (cellData.type === 'letter') {
+                         cellData.fg = letterColor;
+                         cellData.bg = letterBgColor;
+                     }
+                     drawCell(cellX, cellY, cellData); // Draw the cell based on its type
+                     currentVisibleCount++;
+                 } else {
+                     cellsToRemove.push(cellKey); // Mark for removal
+                 }
+             });
+             cellsToRemove.forEach(key => assignedCellData.delete(key)); // Remove
+
+            // Optional: End fade-out early
+            const thresholdCount = initialVisibleCount > 0 ? Math.floor(initialVisibleCount * END_THRESHOLD_PERCENT) : 0;
+            if ((currentVisibleCount > 0 && currentVisibleCount <= thresholdCount && initialVisibleCount > 0) || currentVisibleCount === 0) {
+                 console.log("Fade-out ending early due to low cell count.");
+                 if (fadeOutFrameId) cancelAnimationFrame(fadeOutFrameId); fadeOutFrameId = null; isEnding = false;
+                 ctx.clearRect(0, 0, canvas.width, canvas.height);
+                 if (bgImageForDrawing) ctx.drawImage(bgImageForDrawing, 0, 0, canvas.width, canvas.height);
+                 assignedCellData.clear();
+                 completeSequence();
+            }
+        }
+
+        // --- Action Handlers ---
+        function handleStartSequence() {
+             console.log("Starting timed sequence and recording...");
+             stopAllAnimations();
+             assignedCellData.clear();
+             handleStartRecording(true);
+             startButton.textContent = "Stop Sequence & Recording";
+             startButton.classList.add('stop-mode'); startButton.disabled = false;
+             startRecordButton.disabled = true; stopRecordButton.disabled = true; stopRecordButton.style.display = 'none';
+             time = 0;
+
+             if (startAnimationEnabled) {
+                 console.log("Starting with fade-in."); isStarting = true;
+                 startAnimationStartTime = performance.now();
+                 startAnimationFrameId = requestAnimationFrame(startIntroAnimation);
+             } else {
+                 console.log("Starting directly into main animation."); isMainLoopActive = true;
+                 mainAnimationStartTime = performance.now();
+                 mainAnimationEndTime = mainAnimationStartTime + (overallDuration * 1000);
+                 animationFrameId = requestAnimationFrame(animate);
+             }
+        }
+
+         function stopAllAnimations(keepBackgroundRunning = false) {
+             if (startAnimationFrameId) cancelAnimationFrame(startAnimationFrameId);
+             if (animationFrameId) cancelAnimationFrame(animationFrameId);
+             if (fadeOutFrameId) cancelAnimationFrame(fadeOutFrameId);
+             if (backgroundFrameId && !keepBackgroundRunning) cancelAnimationFrame(backgroundFrameId);
+             startAnimationFrameId = null; animationFrameId = null; fadeOutFrameId = null;
+             if (!keepBackgroundRunning) backgroundFrameId = null;
+             isStarting = false; isMainLoopActive = false; isEnding = false;
+             if (!keepBackgroundRunning) isBackgroundLoopActive = false;
+             console.log(`Stopped all animations. ${keepBackgroundRunning ? 'Keeping' : 'Stopping'} background loop.`);
+         }
+
+        function handleRestart() {
+            console.log("Stop/Restart triggered...");
+            const wasRecordingSequence = isSequenceRecording;
+            isSequenceRecording = false;
+            if (isRecording && wasRecordingSequence) {
+                handleStopRecording(false);
+            }
+            stopAllAnimations();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (bgImageForDrawing) ctx.drawImage(bgImageForDrawing, 0, 0, canvas.width, canvas.height);
+            assignedCellData.clear();
+            time = 0;
+            startButton.textContent = "Start Sequence & Record";
+            startButton.classList.remove('stop-mode');
+            startButton.disabled = false;
+            if (!isRecording) {
+                 startRecordButton.disabled = false;
+                 stopRecordButton.disabled = true;
+                 stopRecordButton.style.display = 'none';
+            }
+            startBackgroundAnimation();
+        }
+
+        // --- Recording ---
+        function handleStartRecording(isFromSequence = false) {
+            if (isRecording) { console.warn("Already recording."); return; }
+            if (!canvas.captureStream || !window.MediaRecorder || !MediaRecorder.isTypeSupported(RECORDING_MIME_TYPE)) {
+                alert("Error: Recording features not fully supported by your browser."); return;
+            }
+
+            try {
+                console.log(`Attempting capture at ${RECORDING_FRAMERATE}fps.`);
+                mediaStream = canvas.captureStream(RECORDING_FRAMERATE);
+                if (!mediaStream || mediaStream.getTracks().length === 0) throw new Error("captureStream failed.");
+                console.log("Stream captured.");
+                const options = { mimeType: RECORDING_MIME_TYPE, videoBitsPerSecond: RECORDING_VIDEO_BITRATE };
+                mediaRecorder = new MediaRecorder(mediaStream, options);
+                console.log("MediaRecorder created.");
+            } catch (e) {
+                 console.error("Error setting up MediaRecorder:", e);
+                 alert(`Error starting recording: ${e.message}.`);
+                 if (mediaStream) { try { mediaStream.getTracks().forEach(track => track.stop()); } catch (err) {} mediaStream = null; }
+                 if (isFromSequence) { handleRestart(); }
+                 else { startRecordButton.disabled = false; stopRecordButton.disabled = true; stopRecordButton.style.display = 'none'; startButton.disabled = false; }
+                 return;
+            }
+
+            recordedChunks = [];
+            mediaRecorder.ondataavailable = (event) => { if (event.data && event.data.size > 0) recordedChunks.push(event.data); };
+            mediaRecorder.onstop = () => {
+                console.log("MediaRecorder stopped.");
+                const wasSeqRec = isSequenceRecording;
+                isRecording = false; isSequenceRecording = false;
+                if (mediaStream) { try { mediaStream.getTracks().forEach(track => track.stop()); } catch(e) {} mediaStream = null; }
+
+                if (recordedChunks.length === 0) {
+                    console.warn("No data recorded."); if (!wasSeqRec) alert("Recording stopped, but no video data captured.");
+                } else {
+                    console.log(`Combining ${recordedChunks.length} chunks.`);
+                    try {
+                        const blob = new Blob(recordedChunks, { type: RECORDING_MIME_TYPE });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a'); document.body.appendChild(a); a.style.display = 'none'; a.href = url;
+                        const now=new Date(), ts=`${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}_${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}${now.getSeconds().toString().padStart(2,'0')}`;
+                        a.download = `noise_creation_${ts}.webm`;
+                        a.click(); window.URL.revokeObjectURL(url); document.body.removeChild(a);
+                        console.log("Recording downloaded.");
+                    } catch (e) { console.error("Error creating/downloading Blob:", e); alert("Error processing recorded video."); }
+                }
+                 stopRecordButton.disabled = true; stopRecordButton.style.display = 'none';
+                 startRecordButton.disabled = false;
+                 if (!isSequenceActive()) {
+                     startButton.textContent = "Start Sequence & Record"; startButton.classList.remove('stop-mode'); startButton.disabled = false;
+                 }
+            };
+            mediaRecorder.onerror = (event) => {
+                console.error("MediaRecorder error:", event.error); alert(`Recording error: ${event.error?.name || 'Unknown'}. Stopped.`);
+                isRecording = false; isSequenceRecording = false;
+                try { if (mediaRecorder?.state !== 'inactive') mediaRecorder.stop(); } catch (e) {}
+                if (mediaStream) { try { mediaStream.getTracks().forEach(track => track.stop()); } catch (e) {} mediaStream = null; }
+                mediaRecorder = null;
+                 stopRecordButton.disabled = true; stopRecordButton.style.display = 'none'; startRecordButton.disabled = false;
+                 if (!isSequenceActive()) { startButton.textContent = "Start Sequence & Record"; startButton.classList.remove('stop-mode'); startButton.disabled = false; }
+            };
+
+            try {
+                mediaRecorder.start(); isRecording = true; isSequenceRecording = isFromSequence;
+                console.log(isFromSequence ? "Sequence recording started." : "Manual recording started.");
+                if (isFromSequence) { /* Buttons set by handleStartSequence */ }
+                else {
+                    startRecordButton.disabled = true; stopRecordButton.disabled = false; stopRecordButton.style.display = 'inline-block'; startButton.disabled = true; stopAllAnimations(true); // Stop background
+                }
+            } catch (e) {
+                 console.error("Error calling mediaRecorder.start():", e); alert(`Failed to start MediaRecorder: ${e.message}`);
+                 isRecording = false; isSequenceRecording = false;
+                 if (mediaStream) { try { mediaStream.getTracks().forEach(track => track.stop()); } catch (err) {} mediaStream = null; }
+                 mediaRecorder = null;
+                 if (isFromSequence) { handleRestart(); }
+                 else { startRecordButton.disabled = false; stopRecordButton.disabled = true; stopRecordButton.style.display = 'none'; startButton.disabled = false; }
+            }
+        }
+
+        function handleStopRecording(restartBg = true) {
+            if (!isRecording || !mediaRecorder) { console.warn("Not recording."); return; }
+            console.log("Stopping recording (handleStopRecording)...");
+            const wasSequenceRunning = isSequenceActive();
+
+            if (mediaRecorder.state === "recording" || mediaRecorder.state === "paused") {
+                try { mediaRecorder.stop(); console.log("mediaRecorder.stop() called."); }
+                catch (e) {
+                    console.error("Error calling mediaRecorder.stop():", e);
+                    isRecording = false; isSequenceRecording = false;
+                    if (mediaStream) { try { mediaStream.getTracks().forEach(track => track.stop()); } catch (err) {} mediaStream = null; }
+                    mediaRecorder = null;
+                    stopRecordButton.disabled = true; stopRecordButton.style.display = 'none'; startRecordButton.disabled = false; if (!wasSequenceRunning) { startButton.disabled = false; }
+                }
+            } else {
+                 console.warn(`MediaRecorder state was '${mediaRecorder.state}'. Cleaning up.`);
+                 isRecording = false; isSequenceRecording = false;
+                 if (mediaStream) { try { mediaStream.getTracks().forEach(track => track.stop()); } catch (err) {} mediaStream = null; }
+                 mediaRecorder = null;
+                 stopRecordButton.disabled = true; stopRecordButton.style.display = 'none'; startRecordButton.disabled = false; if (!wasSequenceRunning) { startButton.disabled = false; }
+            }
+
+             if (restartBg && !wasSequenceRunning) { console.log("Restarting background animation."); startBackgroundAnimation(); }
+             else { console.log("Background animation restart skipped."); }
+        }
+
+
+        // --- Initial Setup ---
+        function initialize() {
+            console.log("Initializing noise grid.");
+            speedControl.addEventListener('input', updateSpeed);
+            gridAmountControl.addEventListener('input', updateGridParams);
+            fillControl.addEventListener('input', updateFillPercentage);
+            simplifyControl.addEventListener('change', updateSimplify);
+            bgUploadInput.addEventListener('change', handleBgUpload);
+            cellImgUploadInput.addEventListener('change', handleCellImgUpload);
+            animAreaRadios.forEach(radio => radio.addEventListener('change', updateAnimationAreaMode));
+            letterInput.addEventListener('input', updateCurrentLetters);
+            letterColorInput.addEventListener('input', updateLetterColor);
+            letterBgColorInput.addEventListener('input', updateLetterBgColor);
+            startButton.addEventListener('click', () => { if (isSequenceActive()) { handleRestart(); } else { handleStartSequence(); } });
+            overallDurationInput.addEventListener('change', updateOverallDuration);
+            startAnimationControl.addEventListener('change', updateStartAnimationEnabled);
+            startDurationInput.addEventListener('change', updateStartAnimationDuration);
+            endAnimationControl.addEventListener('change', updateEndAnimationEnabled);
+            endDurationInput.addEventListener('change', updateEndAnimationDuration);
+            startRecordButton.addEventListener('click', () => handleStartRecording(false));
+            stopRecordButton.addEventListener('click', () => handleStopRecording(true));
+
+            updateSpeed(); updateGridParams(); updateFillPercentage(); updateSimplify(); updateAnimationAreaMode();
+            updateOverallDuration(); updateStartAnimationEnabled(); updateStartAnimationDuration(); updateEndAnimationEnabled(); updateEndAnimationDuration();
+            updateCurrentLetters(); updateLetterColor(); updateLetterBgColor();
+
+            startButton.textContent = "Start Sequence & Record"; startButton.classList.remove('stop-mode'); startButton.disabled = false;
+            startRecordButton.disabled = false; stopRecordButton.disabled = true; stopRecordButton.style.display = 'none';
+
+            startBackgroundAnimation();
+            console.log("Initialization complete. Background animation started.");
+        }
+
+        // --- Start ---
+        initialize();
+
+    </script>
+
+</body>
+</html>
