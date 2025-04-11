@@ -3,42 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evolving Noise Grid (Independent Image/Letter Cells)</title> <script src="https://cdn.tailwindcss.com"></script>
+    <title>UNGRID by Uninspired Studio</title> <script src="https://cdn.tailwindcss.com"></script>
     <script type="module" src="https://cdn.jsdelivr.net/npm/simplex-noise@4.0.1/dist/esm/simplex-noise.js"></script>
     <style>
         body {
-            font-family: 'Inter', sans-serif; margin: 0; min-height: 100vh;
-            background: linear-gradient(to bottom right, #1f2937, #111827);
+            font-family: sans-serif; margin: 0; min-height: 100vh;
+            background: black; /* Body background is already black */
             color: #e5e5e5; display: flex; flex-direction: column;
             align-items: center; padding: 1rem; box-sizing: border-box;
         }
         h1 { margin-bottom: 1.5rem; font-size: 1.75rem; font-weight: 600; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
-        #main-layout { display: flex; width: 100%; max-width: 1400px; gap: 1.5rem; flex-grow: 1; align-items: flex-start; flex-wrap: wrap; /* Allow wrap on smaller screens */ }
+        #main-layout { display: flex; width: 100%; max-width: 1920px; gap: 1.5rem; flex-grow: 1; align-items: flex-start; flex-wrap: wrap; /* Allow wrap on smaller screens */ }
+
+        /* Controls container styles */
         #controls-container {
-            flex-basis: 300px; flex-shrink: 0; background-color: rgba(55, 65, 81, 0.65);
-            backdrop-filter: blur(12px);
-            border-radius: 0.75rem; padding: 1.5rem; border: 1px solid rgba(255, 255, 255, 0.15);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-            height: fit-content; max-height: calc(100vh - 8rem);
+            flex-basis: 300px; flex-shrink: 0;
+            /* --- Updated background color to black --- */
+            background-color: black;
+            border-radius: 0.75rem; padding: 1.5rem;
+            /* Adjusted border for visibility against black bg */
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            height: fit-content; max-height: calc(100vh - 2rem);
             overflow-y: auto;
         }
         #controls { display: flex; flex-direction: column; gap: 1.5rem; align-items: stretch; }
-        .control-item { display: flex; flex-direction: column; align-items: flex-start; color: #d1d5db; font-size: 0.875rem; }
+
+        /* Styles for items within the controls container */
+        .control-item { display: flex; flex-direction: column; align-items: flex-start; color: #d1d5db; /* Light gray text, visible on black */ font-size: 0.875rem; }
         .control-item label:not(.radio-label):not(.checkbox-label):not(.button-label):not(.color-label) {
             margin-bottom: 0.5rem; font-weight: 500; width: 100%; display: flex; justify-content: space-between;
         }
-        .control-item label .value-display { font-weight: 600; color: #ffffff; }
-        .control-item input[type="range"] { width: 100%; cursor: pointer; accent-color: #60a5fa; margin-top: 0.25rem; }
+        .control-item label .value-display { font-weight: 600; color: #ffffff; /* White text, visible on black */ }
+        /* --- Updated range input accent color to white --- */
+        .control-item input[type="range"] { width: 100%; cursor: pointer; accent-color: #ffffff; /* White accent, visible */ margin-top: 0.25rem; }
         .control-item.checkbox-item, .control-item.radio-group { flex-direction: row; align-items: center; justify-content: flex-start; }
         .control-item.radio-group { flex-wrap: wrap; gap: 0 1rem; }
         .control-item .radio-label, .control-item .checkbox-label { margin-bottom: 0; margin-left: 0.4rem; order: 2; font-weight: normal; cursor: pointer; }
-        .control-item input[type="checkbox"], .control-item input[type="radio"] { order: 1; cursor: pointer; width: 1rem; height: 1rem; accent-color: #60a5fa; }
+        .control-item input[type="checkbox"], .control-item input[type="radio"] { order: 1; cursor: pointer; width: 1rem; height: 1rem; accent-color: #60a5fa; /* Light blue accent, visible */ }
         .control-item.file-upload-item, .control-item.animation-action-controls, .control-item.recording-controls, .control-item.duration-controls, .control-item.letter-controls {
-            align-items: center; margin-top: 0.5rem; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 0.5rem;
+            align-items: center; margin-top: 0.5rem; flex-direction: row; flex-wrap: nowrap; justify-content: center; gap: 0.5rem;
         }
-         /* Combined button styles */
+
+         /* Combined button styles - Backgrounds provide contrast, text is light */
          .button-label, #startButton, #startRecordButton, #stopRecordButton {
-             display: inline-block; background-color: rgba(75, 85, 99, 0.8); color: #e5e5e5;
+             display: inline-block; background-color: rgba(75, 85, 99, 0.8); color: #e5e5e5; /* Light text */
              padding: 0.5rem 1rem; border-radius: 0.375rem; cursor: pointer; transition: background-color 0.2s, color 0.2s;
              font-size: 0.875rem; border: 1px solid rgba(255, 255, 255, 0.1); text-align: center; box-sizing: border-box;
              width: auto;
@@ -57,28 +65,31 @@
         }
 
         #startButton:disabled, #startRecordButton:disabled, #stopRecordButton:disabled {
-            background-color: rgba(55, 65, 81, 0.5); color: rgba(229, 229, 229, 0.5);
+            background-color: rgba(55, 65, 81, 0.5); color: rgba(229, 229, 229, 0.5); /* Semi-transparent light text */
             cursor: not-allowed; border-color: rgba(255, 255, 255, 0.05);
         }
         #bgUpload, #cellImgUpload { display: none; }
+
+        /* Input fields - Dark background, light text */
         #endDurationInput, #startDurationInput, #overallDurationInput {
-             width: 60px; background-color: rgba(31, 41, 55, 0.8); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0.375rem; padding: 0.3rem 0.5rem; text-align: right; margin-left: 0.5rem; color: #e5e5e5;
+             width: 60px; background-color: rgba(31, 41, 55, 0.8); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0.375rem; padding: 0.3rem 0.5rem; text-align: right; margin-left: 0.5rem; color: #e5e5e5; /* Light text */
         }
         #letterInput {
-             flex-grow: 1; background-color: rgba(31, 41, 55, 0.8); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0.375rem; padding: 0.4rem 0.6rem; color: #e5e5e5; font-size: 0.875rem; min-width: 100px;
+             flex-grow: 1; background-color: rgba(31, 41, 55, 0.8); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0.375rem; padding: 0.4rem 0.6rem; color: #e5e5e5; /* Light text */ font-size: 0.875rem; min-width: 100px;
         }
+
+        /* Color picker styles */
         .color-picker-item { display: flex; align-items: center; gap: 0.5rem; }
-        .color-picker-item label { margin-bottom: 0; font-weight: normal; }
+        .color-picker-item label { margin-bottom: 0; font-weight: normal; /* Uses .control-item color */ }
         .color-picker-item input[type="color"] {
             width: 28px; height: 28px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0.25rem; cursor: pointer; padding: 2px; background-color: transparent;
-            /* Hide default color input appearance */
             -webkit-appearance: none; -moz-appearance: none; appearance: none;
         }
-        /* Style the color input's inner part */
         .color-picker-item input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; border-radius: 0.1rem; }
         .color-picker-item input[type="color"]::-webkit-color-swatch { border: none; border-radius: 0.1rem; }
         .color-picker-item input[type="color"]::-moz-color-swatch { border: none; border-radius: 0.1rem; }
 
+        /* Canvas and loading styles */
         #canvas-container { flex-grow: 1; display: flex; justify-content: center; align-items: center; position: relative; min-width: 0; align-self: flex-start; }
         canvas#noiseCanvas {
             display: block; max-width: 100%; max-height: calc(100vh - 6rem); height: auto; width: auto;
@@ -88,21 +99,48 @@
         #loading {
             position: absolute; color: #ffffff; background-color: rgba(0,0,0,0.7); padding: 0.75rem 1.25rem; border-radius: 0.5rem; font-size: 1.25rem; text-align: center; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; display: none;
         }
-        .control-group-label { font-weight: 600; color: #ffffff; margin-bottom: 0.75rem; width: 100%; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 0.25rem; font-size: 0.9rem; }
+        .control-group-label { font-weight: 600; color: #ffffff; /* White text, visible */ width: 100%; font-size: 0.9rem; }
         #stopRecordButton { display: none; }
 
     </style>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
-
-    <h1>Evolving Noise Grid</h1>
 
     <div id="main-layout">
         <div id="controls-container">
             <div id="controls">
+                <div class="control-group-label">Background</div>
+                <div class="control-item file-upload-item">
+                    <label id="bgUploadLabel" for="bgUpload" class="button-label">Upload Background</label>
+                    <input type="file" id="bgUpload" accept="image/*">
+                </div>
+                <div class="control-item">
+                   <label style="margin-bottom: 0.5rem;">Animate On:</label>
+                   <div class="radio-group">
+                       <input type="radio" id="animEverywhere" name="animArea" value="everywhere" checked>
+                       <label for="animEverywhere" class="radio-label">Everywhere</label> </br>
+                       <input type="radio" id="animLight" name="animArea" value="light">
+                       <label for="animLight" class="radio-label">Light Areas</label> </br>
+                       <input type="radio" id="animDark" name="animArea" value="dark">
+                       <label for="animDark" class="radio-label">Dark Areas</label>
+                   </div>
+                </div>
+
+                <hr>
+
+                <div class="control-group-label">Cell Image</div>
+                <div class="control-item file-upload-item">
+                    <label id="cellImgUploadLabel" for="cellImgUpload" class="button-label">Upload Cell Images</label>
+                    <input type="file" id="cellImgUpload" accept="image/*" multiple>
+    
+                </div>
+
+                <hr>
+
+                <div class="control-group-label">Controll</div>
                  <div class="control-item">
                     <label for="speedControl">Speed <span id="speedValue" class="value-display">5</span></label>
                     <input type="range" id="speedControl" min="1" max="20" value="5" step="1">
@@ -120,29 +158,7 @@
                      <label for="simplifyControl" class="checkbox-label">Simplify Pattern</label>
                 </div>
 
-                 <div class="control-group-label">Background</div>
-                 <div class="control-item file-upload-item">
-                     <label id="bgUploadLabel" for="bgUpload" class="button-label">Upload Background</label>
-                     <input type="file" id="bgUpload" accept="image/*">
-                 </div>
-                 <div class="control-item">
-                    <label style="margin-bottom: 0.5rem;">Animate On:</label>
-                    <div class="radio-group">
-                        <input type="radio" id="animEverywhere" name="animArea" value="everywhere" checked>
-                        <label for="animEverywhere" class="radio-label">Everywhere</label>
-                        <input type="radio" id="animLight" name="animArea" value="light">
-                        <label for="animLight" class="radio-label">Light Areas</label>
-                        <input type="radio" id="animDark" name="animArea" value="dark">
-                        <label for="animDark" class="radio-label">Dark Areas</label>
-                    </div>
-                 </div>
-
-                 <div class="control-group-label">Cell Image</div>
-                 <div class="control-item file-upload-item">
-                     <label id="cellImgUploadLabel" for="cellImgUpload" class="button-label">Upload Cell Images</label>
-                     <input type="file" id="cellImgUpload" accept="image/*" multiple>
-                     <span class="text-xs text-gray-400 block w-full text-center mt-1">Images used for active cells</span>
-                 </div>
+                <hr>
 
                  <div class="control-group-label">Letter Cells</div> <div class="control-item">
                      <label for="letterInput" style="margin-bottom: 0.5rem;">Letters for Cells:</label> <input type="text" id="letterInput" placeholder="Type letters here (optional)">
@@ -157,20 +173,29 @@
                          <label for="letterBgColorInput" class="color-label">Letter Cell BG</label> </div>
                  </div>
 
+                 <hr>
+
 
                  <div class="control-group-label">Timed Sequence & Recording</div>
                   <div class="control-item duration-controls">
                      <input type="number" id="overallDurationInput" min="0.1" step="0.1" value="5.0">
                      <label for="overallDurationInput" style="margin-left: 0.5rem;">Sequence Duration (sec)</label>
                  </div>
+
+                 <hr>
+
                  <div class="control-item checkbox-item">
                      <input type="checkbox" id="startAnimationControl">
                      <label for="startAnimationControl" class="checkbox-label">Enable Start Fade-In</label>
                  </div>
+
                  <div class="control-item duration-controls">
                      <input type="number" id="startDurationInput" min="0.1" step="0.1" value="1.0">
                      <label for="startDurationInput" style="margin-left: 0.5rem;">Start Duration (sec)</label>
                  </div>
+
+                 <hr>
+
                   <div class="control-item checkbox-item">
                      <input type="checkbox" id="endAnimationControl">
                      <label for="endAnimationControl" class="checkbox-label">Enable End Fade-Out</label>
@@ -182,6 +207,8 @@
                  <div class="control-item animation-action-controls">
                      <button id="startButton" class="button-label">Start Sequence & Record</button>
                  </div>
+
+                 <hr>
 
                  <div class="control-group-label">Manual Recording</div>
                  <div class="control-item recording-controls">
