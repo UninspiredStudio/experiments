@@ -1,13 +1,13 @@
 // constants.js - Configuration constants for the application
 
-export const INITIAL_CANVAS_SIZE = 600;
-export const MAX_INTERNAL_RESOLUTION = 1200;
+export const INITIAL_CANVAS_SIZE = 1000;
+export const MAX_INTERNAL_RESOLUTION = 2000;
 export const OVERLAP_FIX = 1.1; // Slightly larger fill to avoid gaps
 export const BG_BRIGHTNESS_THRESHOLD = 128;
 export const END_THRESHOLD_PERCENT = 0.01;
 export const ACCELERATION_FACTOR = 2;
 export const START_ACCELERATION_FACTOR = 1;
-export const RECORDING_FRAMERATE = 60;
+export const RECORDING_FRAMERATE = 30;
 export const RECORDING_MIME_TYPE = 'video/webm;codecs=vp9';
 export const RECORDING_VIDEO_BITRATE = 9000000; // 9 Mbps
 export const DEFAULT_LETTER_COLOR = '#FFFFFF';
