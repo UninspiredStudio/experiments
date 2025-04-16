@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ungrid by Uninspired Studio</title>
+
+    <script type="module" src="https://cdn.jsdelivr.net/npm/simplex-noise@4.0.1/dist/esm/simplex-noise.js"></script>
+    <link rel="stylesheet" href="style.css">
+
+    <!-- UNINSPIRED STUFF -->
+    <script defer data-domain="experiments.uninspired.studio" src="https://analytics.uninspired.studio/js/script.js"></script>
+    <link rel="stylesheet" href="uninspired/tokens.css">
+    <script src="uninspired/components/basic-slider.js"></script>
+
+
+    
+
+</head>
+<body class="typo-body">
+
+    <div id="main-layout">
+        <div id="controls-container">
+            <div id="controls">
+                <!-- 1. Background -->
+                <div class="control-group-label typo-body-bold">Background</div>
+                <div class="control-item file-upload-item">
+                    <label id="bgUploadLabel" for="bgUpload" class="button-label typo-label">Upload Background</label>
+                    <input type="file" id="bgUpload" accept="image/*">
+                </div>
+
+                <hr>
+
+                <!-- 2. Cell -->
+                <div class="control-group-label typo-body-bold">Cell Image</div>
+                <div class="control-item file-upload-item">
+                    <label id="cellImgUploadLabel" for="cellImgUpload" class="button-label typo-label">Upload Cell Images</label>
+                    <input type="file" id="cellImgUpload" accept="image/*" multiple>
+                </div>
+
+                <hr>
+
+                <!-- 3. Typo Cell -->
+                <div class="control-group-label typo-body-bold">Letter Cells</div>
+                <div class="control-item">
+                     <label for="letterInput" class="typo-label-bold" style="margin-bottom: 0.5rem;">Letters for Cells:</label>
+                     <input type="text" id="letterInput" placeholder="Type letters here (optional)">
+                     <span class="typo-label" style="color: var(--us-fg-subtext); display: block; width: 100%; text-align: left; margin-top: 0.1rem;">If letters are provided, some active cells may display a letter instead of an image.</span>
+                </div>
+                <div class="control-item letter-controls">
+                     <div class="color-picker-item">
+                         <input type="color" id="letterColorInput" value="#FFFFFF">
+                         <label for="letterColorInput" class="color-label typo-label">Letter Color</label>
+                     </div>
+                     <div class="color-picker-item">
+                         <input type="color" id="letterBgColorInput" value="#000000">
+                         <label for="letterBgColorInput" class="color-label typo-label">Letter Cell BG</label>
+                     </div>
+                </div>
+
+                <hr>
+
+                <!-- 4. Layout -->
+                <div class="control-group-label typo-body-bold">Layout</div>
+                <!-- 4.1 Simplify -->
+                <div class="control-item checkbox-item">
+                     <input type="checkbox" id="simplifyControl">
+                     <label for="simplifyControl" class="checkbox-label typo-label">Simplify Pattern</label>
+                </div>
+                <!-- 4.2 Animation on -->
+                 <div class="control-item">
+                   <label class="typo-label-bold" style="margin-bottom: 0.5rem;">Animate On:</label>
+                   <div class="radio-group">
+                       <input type="radio" id="animEverywhere" name="animArea" value="everywhere" checked>
+                       <label for="animEverywhere" class="radio-label typo-label">Everywhere</label> </br>
+                       <input type="radio" id="animLight" name="animArea" value="light">
+                       <label for="animLight" class="radio-label typo-label">Light Areas</label> </br>
+                       <input type="radio" id="animDark" name="animArea" value="dark">
+                       <label for="animDark" class="radio-label typo-label">Dark Areas</label>
+                   </div>
+                </div>
+                <!-- 4.3 Sliders -->
+                 <div class="control-item">
+                    <basic-slider id="speedControl" label="Speed" min="1" max="20" value="0.2105" unit=""></basic-slider>
+                </div>
+                <div class="control-item">
+                     <basic-slider id="gridAmountControl" label="Grid Amount" min="10" max="200" value="0.1053" unit=""></basic-slider>
+                </div>
+                <div class="control-item">
+                    <basic-slider id="fillControl" label="Max Fill" min="0" max="100" value="0.5" unit="%"></basic-slider>
+                </div>
+
+                <hr>
+
+                <!-- 5. Automatic Recording -->
+                <div class="control-group-label typo-body-bold">Timed Sequence & Recording</div>
+                <div class="segmented-control-group">
+                    <div class="control-item duration-controls segment-item" style="margin-bottom: 1rem;">
+                         <input type="number" id="overallDurationInput" min="0.1" step="0.1" value="5.0">
+                         <label for="overallDurationInput" class="typo-label" style="margin-left: 0.5rem;">Sequence Duration (sec)</label>
+                    </div>
+                    <div class="control-item checkbox-item segment-item" style="margin-bottom: 1rem;">
+                         <input type="checkbox" id="startAnimationControl">
+                         <label for="startAnimationControl" class="checkbox-label typo-label">Enable Start Fade-In</label>
+                    </div>
+                    <div class="control-item duration-controls segment-item" style="margin-bottom: 1rem;">
+                         <input type="number" id="startDurationInput" min="0.1" step="0.1" value="1.0">
+                         <label for="startDurationInput" class="typo-label" style="margin-left: 0.5rem;">Start Duration (sec)</label>
+                    </div>
+                    <div class="control-item checkbox-item segment-item" style="margin-bottom: 1rem;">
+                         <input type="checkbox" id="endAnimationControl">
+                         <label for="endAnimationControl" class="checkbox-label typo-label">Enable End Fade-Out</label>
+                    </div>
+                    <div class="control-item duration-controls segment-item" style="margin-bottom: 1rem;">
+                         <input type="number" id="endDurationInput" min="0.1" step="0.1" value="2.0">
+                         <label for="endDurationInput" class="typo-label" style="margin-left: 0.5rem;">End Duration (sec)</label>
+                    </div>
+                    <div class="control-item animation-action-controls segment-item" style="margin-bottom: 1rem;">
+                         <button id="startButton" class="button-label typo-label-bold">Start Sequence & Record</button>
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- 6. Manual -->
+                 <div class="control-group-label typo-body-bold">Manual Recording</div>
+                 <div class="control-item recording-controls">
+                     <button id="startRecordButton" class="button-label typo-label-bold">Start Recording Only</button>
+                     <button id="stopRecordButton" class="button-label typo-label-bold" disabled>Stop Recording</button>
+                 </div>
+            </div>
+        </div>
+
+        <div id="canvas-container">
+            <div id="loading" class="typo-heading-3">Loading...</div>
+            <canvas id="noiseCanvas"></canvas>
+            <canvas id="hiddenBgCanvas" style="display: none;"></canvas>
+        </div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+
+
+</body>
+</html>

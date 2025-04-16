@@ -1,0 +1,302 @@
+html {
+    overflow-y: hidden;
+}
+
+body {
+    font-family: var(--us-font-family-default);
+    margin: 0;
+    min-height: 100vh;
+    background: var(--us-bg-canvas);
+    color: var(--us-fg-default);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
+
+#main-layout {
+    display: flex;
+    width: 100%;
+    max-width: 1920px;
+    gap: 1.5rem;
+    flex-grow: 1;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    /* Allow wrap on smaller screens */
+}
+
+/* Controls container styles */
+#controls-container {
+    flex-basis: 300px;
+    flex-shrink: 0;
+    background-color: var(--us-bg-lowest);
+    border-radius: var(--us-radii-micro-medium);
+    padding: 1.5rem;
+    border: 1px solid var(--us-border-soft);
+    height: fit-content;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+}
+
+#controls {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    align-items: stretch;
+}
+
+/* Styles for items within the controls container */
+.control-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    color: var(--us-fg-subtext);
+    /* Use subtext color */
+}
+
+.control-item label:not(.radio-label):not(.checkbox-label):not(.button-label):not(.color-label) {
+    margin-bottom: 0.5rem;
+    /* Keep spacing */
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+}
+
+.control-item label .value-display {
+    color: var(--us-fg-default);
+    /* Use default fg */
+}
+
+.control-item input[type="range"] {
+    width: 100%;
+    cursor: pointer;
+    accent-color: var(--us-accent-high);
+    margin-top: 0.25rem;
+}
+
+.control-item.checkbox-item,
+.control-item.radio-group {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.control-item.radio-group {
+    flex-wrap: wrap;
+    gap: 0 1rem;
+}
+
+.control-item .radio-label,
+.control-item .checkbox-label {
+    margin-bottom: 0;
+    margin-left: 0.4rem;
+    order: 2;
+    cursor: pointer;
+    /* Inherit font from body/parent */
+}
+
+.control-item input[type="checkbox"],
+.control-item input[type="radio"] {
+    order: 1;
+    cursor: pointer;
+    width: 1rem;
+    height: 1rem;
+    accent-color: var(--us-accent-high);
+}
+
+.control-item.file-upload-item,
+.control-item.animation-action-controls,
+.control-item.recording-controls,
+.control-item.duration-controls,
+.control-item.letter-controls {
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: center;
+
+    width: 100%;
+}
+
+/* Combined button styles */
+.button-label,
+#startButton,
+#startRecordButton,
+#stopRecordButton {
+    display: inline-block;
+    background-color: var(--us-bg-mid);
+    color: var(--us-fg-default);
+    padding: 0.5rem 1rem;
+    border-radius: var(--us-radii-micro-small);
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+    border: 1px solid var(--us-border-medium);
+    text-align: center;
+    box-sizing: border-box;
+    width: auto;
+}
+
+#startButton {
+    min-width: 180px;
+}
+
+.button-label:hover,
+#startButton:hover:not(:disabled),
+#startRecordButton:hover:not(:disabled),
+#stopRecordButton:hover:not(:disabled) {
+    background-color: var(--us-bg-high);
+}
+
+#startButton.stop-mode {
+    background-color: var(--us-accent-high);
+    /* Use accent for stop mode */
+    color: var(--us-fg-inverse);
+    /* Ensure contrast on accent */
+    border-color: transparent;
+    /* Remove border for accent bg */
+}
+
+#startButton.stop-mode:hover:not(:disabled) {
+    /* Slightly darken or adjust accent on hover if needed, using a placeholder for now */
+    filter: brightness(0.9);
+}
+
+#startButton:disabled,
+#startRecordButton:disabled,
+#stopRecordButton:disabled {
+    background-color: var(--us-bg-low);
+    color: var(--us-fg-subtext);
+    cursor: not-allowed;
+    border-color: var(--us-border-soft);
+}
+
+#bgUpload,
+#cellImgUpload {
+    display: none;
+}
+
+/* Input fields */
+#endDurationInput,
+#startDurationInput,
+#overallDurationInput {
+    width: 60px;
+    background-color: var(--us-bg-lowest);
+    border: 1px solid var(--us-border-medium);
+    border-radius: var(--us-radii-micro-small);
+    padding: 0.3rem 0.5rem;
+    text-align: right;
+    margin-left: 0.5rem;
+    color: var(--us-fg-default);
+}
+
+#letterInput {
+    flex-grow: 1;
+    background-color: var(--us-bg-lowest);
+    border: 1px solid var(--us-border-medium);
+    border-radius: var(--us-radii-micro-small);
+    padding: 0.4rem 0.6rem;
+    color: var(--us-fg-default);
+    min-width: 100px;
+}
+
+/* Color picker styles */
+.color-picker-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.color-picker-item label {
+    margin-bottom: 0;
+    /* Inherit color/font */
+}
+
+.color-picker-item input[type="color"] {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--us-border-medium);
+    border-radius: var(--us-radii-micro-small);
+    cursor: pointer;
+    padding: 2px;
+    background-color: var(--us-bg-low);
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.color-picker-item input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+    border-radius: 2px;
+    /* Slightly smaller radius */
+}
+
+.color-picker-item input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 2px;
+    /* Slightly smaller radius */
+}
+
+.color-picker-item input[type="color"]::-moz-color-swatch {
+    border: none;
+    border-radius: 2px;
+    /* Slightly smaller radius */
+}
+
+/* Canvas and loading styles */
+#canvas-container {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    min-width: 0;
+    align-self: flex-start;
+    height: 100vh;
+}
+
+canvas#noiseCanvas {
+    display: block;
+    max-width: 100%;
+    max-height: calc(100vh - 6rem);
+    height: auto;
+    width: auto;
+    border-radius: var(--us-radii-micro-medium);
+    background-color: var(--us-bg-invert-canvas);
+    /* Use inverted canvas for canvas bg */
+}
+
+#loading {
+    position: absolute;
+    color: var(--us-fg-inverse);
+    background-color: rgba(0, 0, 0, 0.7);
+    /* Keep dark overlay */
+    padding: 0.75rem 1.25rem;
+    border-radius: var(--us-radii-micro-medium);
+    text-align: center;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    display: none;
+}
+
+.control-group-label {
+    color: var(--us-fg-default);
+    width: 100%;
+    /* Font handled by typo class */
+}
+
+#stopRecordButton {
+    display: none;
+}
+
+hr {
+    border: none;
+    height: 1px;
+    background-color: var(--us-border-medium);
+    margin: 1.5rem 0;
+    /* Add vertical margin */
+}
+
+
