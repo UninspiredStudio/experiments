@@ -1,65 +1,285 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Experiments Index</title>
-    <style>
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-          Oxygen, Ubuntu, Cantarell, sans-serif;
-        line-height: 1.6;
-        margin: 0;
-        padding: 20px;
-        background-color: #f5f5f5;
-        color: #333;
-      }
-      .container {
-        max-width: 800px;
-        margin: 0 auto;
-        background-color: white;
-        padding: 2rem;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      }
-      h1 {
-        color: #2c3e50;
-        margin-bottom: 2rem;
-        text-align: center;
-      }
-      .experiment-list {
-        list-style: none;
-        padding: 0;
-      }
-      .experiment-item {
-        margin-bottom: 1rem;
-        padding: 1rem;
-        background-color: #f8f9fa;
-        border-radius: 4px;
-        transition: background-color 0.2s;
-      }
-      .experiment-item:hover {
-        background-color: #e9ecef;
-      }
-      .experiment-link {
-        text-decoration: none;
-        color: #2c3e50;
-        font-weight: 500;
-        display: block;
-      }
-      .experiment-link:hover {
-        color: #3498db;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <h1>Experiments</h1>
-      <ul class="experiment-list">
-        <li class="experiment-item">
-          <a href="/ungrid/index.html" class="experiment-link">Ungrid</a>
-        </li>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Experiments Index</title>
+
+  <link rel="stylesheet" href="uninspired-base/tokens.css"/>
+  <script defer data-domain="experiments.uninspired.studio" src="https://analytics.uninspired.studio/js/script.js"></script>
+
+
+
+  <style>
+    body {
+      overflow: hidden;
+      margin: 0;
+      background-color: #000000;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 1rem;
+      box-sizing: border-box;
+
+      font-family: "Instrument Sans", sans-serif;
+    }
+
+    #canvasContainer {
+      position: fixed;
+      width: 100vw;
+      height: 100vh;
+      top: 0;
+      left: 0;
+      z-index: -1;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background-color: #000000;
+    }
+
+    /* --- Base Styles & Transitions for Animation --- */
+
+    h1 {
+      color: white;
+      font-size: 3.5rem;
+      font-weight: 400;
+      margin-bottom: 0rem;
+      text-align: center;
+      z-index: 10;
+      position: relative;
+      opacity: 1;
+      transition: opacity 1s ease-out; /* 1 second fade */
+    }
+
+    .subtitle {
+      font-size: 2rem;
+      font-weight: 400;
+      color: #c0c0c0;
+      text-align: center;
+      margin-bottom: 2.5rem;
+      margin-top: 0;
+      z-index: 10;
+      position: relative;
+      opacity: 1;
+      transition: opacity 1s ease-out; /* 1 second fade */
+    }
+
+    #contentContainer {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      z-index: 5;
+      position: relative;
+      padding: 1.75rem 2rem;
+      text-align: left;
+      width: 600px;
+      max-width: 90%;
+      box-sizing: border-box;
+      opacity: 1;
+      max-height: 500px;
+      overflow: hidden;
+      /* Define transitions - UPDATED duration for collapse */
+      transition: max-height 0.4s ease-out, /* Changed to 400ms */
+                  padding-top 0.4s ease-out, /* Changed to 400ms */
+                  padding-bottom 0.4s ease-out, /* Changed to 400ms */
+                  border-width 0.4s ease-out, /* Changed to 400ms */
+                  background 0.3s ease,
+                  border-color 0.3s ease;
+    }
+
+    body:not(.is-animating) #contentContainer:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .experiment-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      opacity: 1;
+      transition: opacity 1s ease-out; /* Text fade transition */
+    }
+
+    .experiment-item {
+      margin-bottom: 0;
+    }
+
+    .experiment-link {
+      color: #e0e0e0;
+      text-decoration: none;
+      font-size: 1.5rem;
+      font-weight: 400;
+      transition: color 0.3s ease;
+      display: block;
+      padding: 0.2rem 0;
+      cursor: pointer;
+    }
+
+     body:not(.is-animating) .experiment-link:hover,
+     body:not(.is-animating) .experiment-link:focus {
+      color: #ffffff;
+    }
+
+    .experiment-description {
+      font-size: 1.5rem;
+      color: #b0b0b0;
+      margin-top: 0.25rem;
+      line-height: 1.4;
+    }
+
+    /* --- Animation Target States (applied via JS) --- */
+    .fading-out {
+      opacity: 0 !important;
+    }
+
+    .box-collapsing {
+      max-height: 0 !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+      border-width: 0 !important;
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
+
+  </style>
+</head>
+
+<body>
+  <div id="canvasContainer">
+    <canvas id="warpCanvas"></canvas>
+  </div>
+
+  <h1 id="main-heading">Experiments</h1>
+  <p class="subtitle" id="main-subtitle">A collection of web explorations</p>
+
+  <div id="contentContainer">
+    <ul class="experiment-list" id="experiment-list-content">
+      <li class="experiment-item">
+        <a href="/ungrid/index.html" class="experiment-link">Ungrid 
+          <span class="experiment-description">
+            – Exploring animated grids applied to images.
+          </span>
+        </a>
+
+      </li>
       </ul>
-    </div>
-  </body>
+  </div>
+
+  <script>
+    // --- DOM Elements ---
+    const canvas = document.getElementById('warpCanvas');
+    const ctx = canvas.getContext('2d');
+    const bodyElement = document.body;
+    const heading = document.getElementById('main-heading');
+    const subtitle = document.getElementById('main-subtitle');
+    const contentContainer = document.getElementById('contentContainer');
+    const experimentListContent = document.getElementById('experiment-list-content');
+    const experimentLinks = document.querySelectorAll('.experiment-link');
+
+    // --- Canvas Animation Variables ---
+    let width, height;
+    let stars = [];
+    const numStars = 1500;
+    const baseWarpSpeed = 0.2; // Base speed
+    const maxWarpSpeed = 3; // Max speed during animation
+    const warpAcceleration = 0.01; // How quickly speed increases per frame
+    let warpSpeed = baseWarpSpeed; // Current speed
+    let animationFrameId = null;
+
+    // --- Star Object ---
+    function Star() {
+      this.resetPosition = function () { this.z = Math.random() * width; const initialFactor = width / this.z; this.x = (Math.random() - 0.5) * width * 1.5 * initialFactor; this.y = (Math.random() - 0.5) * height * 1.5 * initialFactor; this.pz = this.z; };
+      this.update = function () { this.z -= warpSpeed * 5; if (this.z < 1) { this.resetPosition(); } }; // Uses variable warpSpeed
+      this.draw = function () {
+         if (this.z <= 0) return;
+         const factor = width / this.z; const sx = this.x * factor + width / 2; const sy = this.y * factor + height / 2; const r = Math.max(0.1, (1 - this.z / width) * 2.5); if (sx + r < 0 || sx - r > width || sy + r < 0 || sy - r > height) return;
+         ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
+         if (this.pz <= 0) { this.pz = this.z; return; }
+         const p_factor = width / this.pz; const px = this.x * p_factor + width / 2; const py = this.y * p_factor + height / 2;
+         if (Math.abs(sx - px) > 0.1 || Math.abs(sy - py) > 0.1) { ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(sx, sy); ctx.strokeStyle = `rgba(200, 200, 255, ${Math.min(0.8, (1 - this.z / width))})`; ctx.lineWidth = r * 1.2; ctx.stroke(); }
+         this.pz = this.z;
+      };
+    }
+
+    // --- Initialization ---
+    function init() {
+      width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; stars = []; for (let i = 0; i < numStars; i++) { const star = new Star(); star.resetPosition(); stars.push(star); }
+      warpSpeed = baseWarpSpeed; // Reset speed on init
+      bodyElement.classList.remove('is-animating'); heading?.classList.remove('fading-out'); subtitle?.classList.remove('fading-out'); experimentListContent?.classList.remove('fading-out');
+      contentContainer?.classList.remove('box-collapsing');
+      if (!animationFrameId) { animate(); }
+    }
+
+    // --- Animation Loop ---
+    function animate() {
+      // Increase speed gradually if animating
+      if (bodyElement.classList.contains('is-animating')) {
+          warpSpeed += warpAcceleration;
+          warpSpeed = Math.min(warpSpeed, maxWarpSpeed); // Cap speed
+      } else {
+          // Optional: Gradually decrease speed back to base if not animating
+          // if (warpSpeed > baseWarpSpeed) {
+          //     warpSpeed -= warpAcceleration * 2; // Decrease faster than increase
+          //     warpSpeed = Math.max(warpSpeed, baseWarpSpeed);
+          // }
+          // Or just reset instantly (simpler)
+           warpSpeed = baseWarpSpeed;
+      }
+
+      const clearAlpha = Math.min(0.5, 0.1 + warpSpeed * 0.05); ctx.fillStyle = `rgba(0, 0, 0, ${clearAlpha})`; ctx.fillRect(0, 0, width, height); stars.forEach(star => { star.update(); star.draw(); }); animationFrameId = requestAnimationFrame(animate);
+    }
+
+    // --- Stop Animation ---
+    function stopAnimation() { if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; } }
+
+    // --- Event Listeners ---
+    window.addEventListener('resize', init);
+
+    experimentLinks.forEach(link => {
+      link.addEventListener('click', (event) => {
+        event.preventDefault(); const targetUrl = event.currentTarget.href; if (bodyElement.classList.contains('is-animating')) return;
+        bodyElement.classList.add('is-animating'); // Start gradual speed increase here
+
+        // --- Start Animation Sequence ---
+        // 0s: Fade out H1 and Subtitle
+        if (heading) heading.classList.add('fading-out');
+        if (subtitle) subtitle.classList.add('fading-out');
+
+        // 1s: Fade out List Content
+        setTimeout(() => {
+            if (experimentListContent) experimentListContent.classList.add('fading-out');
+        }, 1000); // Text fade starts at 1s, ends at 2s
+
+        // 2s: Start Box Collapse
+        setTimeout(() => {
+            if (contentContainer) contentContainer.classList.add('box-collapsing');
+            // REMOVED direct warpSpeed increase here - it's handled gradually in animate()
+            // warpSpeed = 8;
+        }, 2000); // Box collapse starts at 2s, ends at 2.4s (due to 400ms duration)
+
+        // 3s: Stop animation loop and Navigate
+        setTimeout(() => {
+            stopAnimation();
+            window.location.href = targetUrl;
+        }, 3000); // Navigate after 3 seconds total
+      });
+    });
+
+    // --- Start ---
+    init();
+    animate();
+  </script>
+
+</body>
 </html>
