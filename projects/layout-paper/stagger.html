@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elliptical Image Collage</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="us-tokens.css"> <!-- Link local tokens -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overscroll-behavior: none;
+            overflow: hidden;
+            background-color: var(--us-bg-canvas);
+            color: #f3f4f6;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+        }
+        .drag-over {
+            border: 4px dashed #6366f1;
+            background-color: rgba(99, 102, 241, 0.1);
+        
+        
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background-color: var(--us-bg-canvas);
+            border-radius: 0.5rem;
+        }
+        .image-list::-webkit-scrollbar { width: 8px; }
+        .image-list::-webkit-scrollbar-track { background: #374151; border-radius: 10px; }
+        .image-list::-webkit-scrollbar-thumb { background-color: #6b7280; border-radius: 10px; border: 2px solid #374151; }
+        .image-list::-webkit-scrollbar-thumb:hover { background-color: #9ca3af; }
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 8px;
+            background: #4b5563;
+            border-radius: 5px; outline: none;
+            opacity: 0.7; transition: opacity .2s; cursor: pointer;
+        }
+        input[type="range"]:hover { opacity: 1; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 18px; height: 18px;
+            background: #6366f1;
+            border-radius: 50%; cursor: pointer;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 18px; height: 18px;
+            background: #6366f1; border-radius: 50%;
+            cursor: pointer; border: none;
+        }
+        .file-input-button { cursor: pointer; display: inline-block; }
+        #fileInput { display: none; }
+        .image-item { transition: background-color 0.2s ease-in-out; }
+        .image-item:hover { background-color: #374151; }
+
+    </style>
+</head>
+<body id="dropZone">
+
+    <div class="w-1/4 h-full p-6 flex flex-col space-y-6 bg-gray-800 overflow-y-auto border-r border-gray-700">
+        <h1 class="text-2xl font-bold text-white mb-4">Animation Controls</h1>
+
+        <div>
+            <label for="fileInput" class="file-input-button bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-200 ease-in-out w-full text-center">
+                Click or Drag to Add Images
+            </label>
+            <input type="file" id="fileInput" multiple accept="image/*">
+            <p class="text-xs text-gray-400 mt-2 text-center">Drop image files anywhere on the page.</p>
+        </div>
+
+        <div class="space-y-4">
+            <h2 class="text-lg font-semibold text-gray-300">Parameters</h2>
+            <div>
+                <label for="speedSlider" class="block text-sm font-medium text-gray-400 mb-1">Animation Speed</label>
+                <input type="range" id="speedSlider" min="0.1" max="3" step="0.1" value="0.8" class="w-full">
+                <span id="speedValue" class="text-xs text-gray-500 block text-right">0.8</span>
+            </div>
+            <div>
+                <label for="scaleSlider" class="block text-sm font-medium text-gray-400 mb-1">Image Scale</label>
+                <input type="range" id="scaleSlider" min="0.2" max="1.2" step="0.05" value="0.7" class="w-full">
+                <span id="scaleValue" class="text-xs text-gray-500 block text-right">0.70</span>
+            </div>
+             <div>
+                <label for="rotationSlider" class="block text-sm font-medium text-gray-400 mb-1">Max Image Rotation (deg)</label>
+                <input type="range" id="rotationSlider" min="0" max="45" step="1" value="10" class="w-full">
+                <span id="rotationValue" class="text-xs text-gray-500 block text-right">10</span>
+            </div>
+             <div>
+                <label for="aspectRatioSlider" class="block text-sm font-medium text-gray-400 mb-1">Ellipse Aspect Ratio (W/H)</label>
+                <input type="range" id="aspectRatioSlider" min="0.2" max="5" step="0.1" value="1.0" class="w-full">
+                <span id="aspectRatioValue" class="text-xs text-gray-500 block text-right">1.0</span>
+            </div>
+             <div>
+                <label for="orderChangeSlider" class="block text-sm font-medium text-gray-400 mb-1">Order Change Freq. (10=Fast)</label> {/* Updated Label */}
+                <input type="range" id="orderChangeSlider" min="0" max="10" step="0.1" value="1.5" class="w-full">
+                <span id="orderChangeValue" class="text-xs text-gray-500 block text-right">1.5</span>
+            </div>
+        </div>
+
+        <div class="flex-grow flex flex-col min-h-0">
+             <h2 class="text-lg font-semibold text-gray-300 mb-2">Uploaded Images</h2>
+             <div id="imageList" class="image-list flex-grow overflow-y-auto bg-gray-900 p-3 rounded-lg space-y-2 border border-gray-700">
+                <p id="noImagesText" class="text-gray-500 text-sm text-center py-4">No images added yet.</p>
+             </div>
+        </div>
+         </div>
+
+    <div class="w-3/4 h-full p-6 relative flex items-center justify-center">
+         <canvas id="animationCanvas"></canvas>
+         <div id="canvasMessage" class="absolute inset-0 flex items-center justify-center text-gray-500 text-xl pointer-events-none">
+             Drag & Drop Images Here
+         </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('animationCanvas');
+        const ctx = canvas.getContext('2d');
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const imageListDiv = document.getElementById('imageList');
+        const noImagesText = document.getElementById('noImagesText');
+        const canvasMessage = document.getElementById('canvasMessage');
+
+        const speedSlider = document.getElementById('speedSlider');
+        const scaleSlider = document.getElementById('scaleSlider');
+        const rotationSlider = document.getElementById('rotationSlider');
+        const aspectRatioSlider = document.getElementById('aspectRatioSlider');
+        const orderChangeSlider = document.getElementById('orderChangeSlider');
+        const speedValueSpan = document.getElementById('speedValue');
+        const scaleValueSpan = document.getElementById('scaleValue');
+        const rotationValueSpan = document.getElementById('rotationValue');
+        const aspectRatioValueSpan = document.getElementById('aspectRatioValue');
+        const orderChangeValueSpan = document.getElementById('orderChangeValue');
+
+        let images = [];
+        let animationSpeed = parseFloat(speedSlider.value);
+        let baseScale = parseFloat(scaleSlider.value);
+        let maxImageRotation = parseFloat(rotationSlider.value) * (Math.PI / 180);
+        let ellipseAspectRatio = parseFloat(aspectRatioSlider.value);
+        // Removed orderChangeProbability, added orderChangeInterval
+        let orderChangeInterval = calculateOrderChangeInterval(parseFloat(orderChangeSlider.value));
+        let dragCounter = 0;
+        let animationFrameId = null;
+        let lastOrderChangeTime = 0;
+        // Removed orderChangeCooldown as interval logic replaces it
+
+        const generateId = () => '_' + Math.random().toString(36).substr(2, 9);
+        const getRandom = (min, max) => Math.random() * (max - min) + min;
+
+        // Function to calculate interval from slider value (0-10)
+        function calculateOrderChangeInterval(sliderValue) {
+            if (sliderValue <= 0) {
+                return Infinity; // No changes if slider is at 0
+            }
+            // Map 0-10 slider range to an interval range (e.g., 50ms to 10000ms)
+            const minInterval = 50; // ms (at slider value 10)
+            const maxInterval = 10000; // ms (at slider value 0.1)
+            const power = 3; // Controls how quickly frequency increases towards 10
+
+            // Inverse relationship: higher slider value -> lower interval
+            const normalizedValue = (10 - sliderValue) / 10; // Range 0 (at slider 10) to 1 (at slider 0)
+            const interval = minInterval + (maxInterval - minInterval) * Math.pow(normalizedValue, power);
+            return interval;
+        }
+
+        function updateOrbitParams(imgData, cssWidth, cssHeight) {
+             imgData.centerX = cssWidth / 2 + getRandom(-cssWidth * 0.05, cssWidth * 0.05);
+             imgData.centerY = cssHeight / 2 + getRandom(-cssHeight * 0.05, cssHeight * 0.05);
+             if (imgData.orbitRadiusX === undefined) {
+                 imgData.orbitRadiusX = getRandom(Math.min(cssWidth, cssHeight) * 0.1, Math.min(cssWidth, cssHeight) * 0.4);
+             }
+             imgData.orbitRadiusY = imgData.orbitRadiusX / ellipseAspectRatio;
+        }
+
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const dpr = window.devicePixelRatio || 1;
+            const rect = container.getBoundingClientRect();
+            const cssWidth = rect.width;
+            const cssHeight = rect.height;
+
+            canvas.style.width = `${cssWidth}px`;
+            canvas.style.height = `${cssHeight}px`;
+
+            canvas.width = Math.floor(cssWidth * dpr);
+            canvas.height = Math.floor(cssHeight * dpr);
+
+            ctx.scale(dpr, dpr);
+
+            images.forEach(imgData => {
+                updateOrbitParams(imgData, cssWidth, cssHeight);
+            });
+
+
+            if (!animationFrameId && images.length > 0) {
+                drawStatic();
+            }
+        }
+
+
+        function addImage(file) {
+            if (!file.type.startsWith('image/')) {
+                console.warn('Skipped non-image file:', file.name);
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const id = generateId();
+                    const cssWidth = canvas.clientWidth;
+                    const cssHeight = canvas.clientHeight;
+
+                    const initialScale = Math.min(baseScale, (cssWidth * 0.3) / img.width, (cssHeight * 0.3) / img.height);
+                    const initialRotation = getRandom(-maxImageRotation, maxImageRotation);
+
+                    const imgData = {
+                        id: id,
+                        element: img,
+                        x: 0,
+                        y: 0,
+                        scale: initialScale,
+                        targetScale: baseScale,
+                        angle: initialRotation,
+                        targetAngle: initialRotation,
+                        orbitAngle: getRandom(0, Math.PI * 2),
+                        orbitSpeed: getRandom(0.002, 0.006) * (Math.random() > 0.5 ? 1 : -1),
+                        orbitRadiusX: undefined,
+                        orbitRadiusY: undefined,
+                        centerX: 0,
+                        centerY: 0,
+                        alpha: 0,
+                        targetAlpha: 1
+                    };
+
+                    updateOrbitParams(imgData, cssWidth, cssHeight);
+
+                    images.push(imgData);
+                    updateImageList();
+                    if (images.length > 0 && !animationFrameId) {
+                        startAnimation();
+                    }
+                     if (images.length > 0) {
+                        canvasMessage.style.display = 'none';
+                    }
+                };
+                img.onerror = () => {
+                    console.error("Failed to load image");
+                    alert(`Failed to load image: ${file.name}`);
+                };
+                img.src = e.target.result;
+            };
+            reader.onerror = () => {
+                console.error("FileReader error");
+                alert(`Error reading file: ${file.name}`);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeImage(id) {
+            images = images.filter(imgData => imgData.id !== id);
+            updateImageList();
+            if (images.length === 0) {
+                stopAnimation();
+                ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+                canvasMessage.style.display = 'flex';
+            }
+        }
+
+
+        function updateImageList() {
+            imageListDiv.innerHTML = '';
+            if (images.length === 0) {
+                 noImagesText.style.display = 'block';
+                 imageListDiv.appendChild(noImagesText);
+            } else {
+                 noImagesText.style.display = 'none';
+                 images.forEach((imgData, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'image-item flex items-center justify-between p-2 rounded-md bg-gray-700 hover:bg-gray-600 transition duration-150';
+                    item.innerHTML = `
+                        <div class="flex items-center space-x-3 overflow-hidden">
+                            <img src="${imgData.element.src}" alt="thumbnail" class="w-10 h-10 object-cover rounded-md flex-shrink-0">
+                            <span class="text-sm text-gray-200 truncate">Image ${imgData.id.substring(1, 5)}</span>
+                        </div>
+                        <button data-id="${imgData.id}" class="remove-btn text-red-500 hover:text-red-400 font-semibold text-xl px-2 rounded hover:bg-gray-500 transition-colors">&times;</button>
+                    `;
+                    item.querySelector('.remove-btn').addEventListener('click', (e) => {
+                         e.stopPropagation();
+                         removeImage(imgData.id);
+                    });
+                    imageListDiv.appendChild(item);
+                });
+            }
+        }
+
+        function updateSliderValues() {
+            speedValueSpan.textContent = parseFloat(speedSlider.value).toFixed(1);
+            scaleValueSpan.textContent = parseFloat(scaleSlider.value).toFixed(2);
+            rotationValueSpan.textContent = parseInt(rotationSlider.value);
+            aspectRatioValueSpan.textContent = parseFloat(aspectRatioSlider.value).toFixed(1);
+            orderChangeValueSpan.textContent = parseFloat(orderChangeSlider.value).toFixed(1);
+        }
+
+        function draw() {
+            const currentTime = performance.now();
+            const cssWidth = canvas.clientWidth;
+            const cssHeight = canvas.clientHeight;
+            const easingFactor = 0.04;
+
+             // Check if interval has passed for order change
+             if (images.length > 1 && isFinite(orderChangeInterval) && (currentTime - lastOrderChangeTime > orderChangeInterval)) {
+                const randomIndex = Math.floor(Math.random() * images.length);
+                const imageToMove = images.splice(randomIndex, 1)[0];
+                images.push(imageToMove);
+                console.log("Changed image order (Interval:", orderChangeInterval.toFixed(0) + "ms)");
+                lastOrderChangeTime = currentTime; // Reset timer
+                updateImageList();
+             }
+
+             ctx.save();
+             ctx.setTransform(1, 0, 0, 1, 0, 0);
+             ctx.clearRect(0, 0, canvas.width, canvas.height);
+             ctx.restore();
+
+
+            images.forEach(imgData => {
+
+                imgData.orbitAngle += imgData.orbitSpeed * animationSpeed;
+                imgData.x = imgData.centerX + imgData.orbitRadiusX * Math.cos(imgData.orbitAngle);
+                imgData.y = imgData.centerY + imgData.orbitRadiusY * Math.sin(imgData.orbitAngle);
+
+                imgData.alpha += (imgData.targetAlpha - imgData.alpha) * easingFactor * 2;
+                imgData.scale += (imgData.targetScale - imgData.scale) * easingFactor;
+
+                if (Math.random() < 0.002) {
+                     imgData.targetAngle = getRandom(-maxImageRotation, maxImageRotation);
+                }
+
+                let angleDiff = imgData.targetAngle - imgData.angle;
+                while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                imgData.angle += angleDiff * easingFactor * animationSpeed;
+
+
+                ctx.save();
+                ctx.globalAlpha = imgData.alpha;
+
+                ctx.translate(imgData.x, imgData.y);
+                ctx.rotate(imgData.angle);
+                ctx.scale(imgData.scale, imgData.scale);
+
+                try {
+                    ctx.drawImage(imgData.element, -imgData.element.width / 2, -imgData.element.height / 2);
+                } catch (e) {
+                    console.error("Error drawing image:", e, imgData.element.src);
+                }
+
+                ctx.restore();
+            });
+
+            animationFrameId = requestAnimationFrame(draw);
+        }
+
+        function startAnimation() {
+            if (!animationFrameId) {
+                console.log("Starting animation");
+                lastOrderChangeTime = performance.now();
+                resizeCanvas();
+                animationFrameId = requestAnimationFrame(draw);
+            }
+        }
+
+        function stopAnimation() {
+            if (animationFrameId) {
+                console.log("Stopping animation");
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+        }
+
+        function drawStatic() {
+            const cssWidth = canvas.clientWidth;
+            const cssHeight = canvas.clientHeight;
+
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.restore();
+
+             images.forEach(imgData => {
+                 const staticX = imgData.centerX + imgData.orbitRadiusX * Math.cos(imgData.orbitAngle);
+                 const staticY = imgData.centerY + imgData.orbitRadiusY * Math.sin(imgData.orbitAngle);
+
+                ctx.save();
+                ctx.globalAlpha = imgData.alpha;
+
+                ctx.translate(staticX, staticY);
+                ctx.rotate(imgData.angle);
+                ctx.scale(imgData.scale, imgData.scale);
+                 try {
+                    ctx.drawImage(imgData.element, -imgData.element.width / 2, -imgData.element.height / 2);
+                 } catch (e) {
+                     console.error("Error drawing static image:", e, imgData.element.src);
+                 }
+                ctx.restore();
+            });
+        }
+
+        dropZone.addEventListener('dragenter', (e) => { e.preventDefault(); e.stopPropagation(); dragCounter++; dropZone.classList.add('drag-over'); });
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); });
+        dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); e.stopPropagation(); dragCounter--; if (dragCounter === 0) { dropZone.classList.remove('drag-over'); } });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault(); e.stopPropagation();
+            dragCounter = 0; dropZone.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) { Array.from(files).forEach(addImage); }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (files.length > 0) { Array.from(files).forEach(addImage); fileInput.value = null; }
+        });
+
+        speedSlider.addEventListener('input', () => {
+            animationSpeed = parseFloat(speedSlider.value);
+            updateSliderValues();
+        });
+
+        scaleSlider.addEventListener('input', () => {
+            baseScale = parseFloat(scaleSlider.value);
+            updateSliderValues();
+            images.forEach(imgData => {
+                imgData.targetScale = baseScale;
+            });
+             if (!animationFrameId && images.length > 0) drawStatic();
+        });
+
+
+        rotationSlider.addEventListener('input', () => {
+            maxImageRotation = parseFloat(rotationSlider.value) * (Math.PI / 180);
+            updateSliderValues();
+            images.forEach(imgData => {
+                 imgData.targetAngle = getRandom(-maxImageRotation, maxImageRotation);
+            });
+             if (!animationFrameId && images.length > 0) drawStatic();
+        });
+
+
+        aspectRatioSlider.addEventListener('input', () => {
+            ellipseAspectRatio = parseFloat(aspectRatioSlider.value);
+            updateSliderValues();
+            const cssWidth = canvas.clientWidth;
+            const cssHeight = canvas.clientHeight;
+            images.forEach(imgData => {
+                 imgData.orbitRadiusY = imgData.orbitRadiusX / ellipseAspectRatio;
+            });
+            if (!animationFrameId && images.length > 0) drawStatic();
+        });
+
+        // Updated listener for order change slider
+        orderChangeSlider.addEventListener('input', () => {
+            const sliderValue = parseFloat(orderChangeSlider.value);
+            orderChangeInterval = calculateOrderChangeInterval(sliderValue); // Calculate interval
+            updateSliderValues();
+            console.log("Order change interval:", isFinite(orderChangeInterval) ? orderChangeInterval.toFixed(0) + "ms" : "Infinity");
+        });
+
+
+        window.addEventListener('resize', () => {
+            clearTimeout(window.resizeTimeout);
+            window.resizeTimeout = setTimeout(() => {
+                resizeCanvas();
+            }, 100);
+        });
+
+        updateSliderValues();
+        resizeCanvas();
+        updateImageList();
+
+    </script>
+
+</body>
+</html>

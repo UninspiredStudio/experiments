@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Griddy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.12.17/paper-full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <link rel="stylesheet" href="us-tokens.css"> <!-- Link local tokens -->
+    <style>
+        /* Custom styles (mostly unchanged) */
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+        .drag-over {
+            border: 4px dashed #3498db;
+            background-color: rgba(52, 152, 219, 0.1);
+        }
+        .thumbnail-item {
+            position: relative;
+            cursor: grab;
+            border: 1px solid #ddd;
+            transition: background-color 0.2s ease;
+        }
+        .thumbnail-item:active {
+            cursor: grabbing;
+            background-color: #e0f2fe;
+        }
+        .thumbnail-item img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+        .remove-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background-color: rgba(255, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            line-height: 20px;
+            text-align: center;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        .thumbnail-item:hover .remove-btn {
+            opacity: 1;
+        }
+        /* Ensure canvas fills its container */
+        canvas {
+            display: block; /* Prevents extra space below canvas */
+            width: 100%;
+            height: 100%;
+            background-color: var(--us-bg-canvas);
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #ddd;
+            border-radius: 5px;
+            outline: none;
+            opacity: 0.7;
+            transition: opacity .2s;
+        }
+        input[type="range"]:hover {
+            opacity: 1;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #3b82f6;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #3b82f6;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+        .file-input-button {
+            cursor: pointer;
+            display: inline-block;
+            text-align: center;
+        }
+        /* Placeholder text positioned relative to its container */
+        #placeholderText {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #aaa;
+            font-size: 16px;
+            pointer-events: none;
+            display: block;
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen flex">
+
+    <input type="file" id="fileInput" accept="image/*" multiple class="hidden">
+
+    <div id="dropZone" class="flex flex-row w-full h-full">
+
+        <div class="w-1/4 h-full bg-white p-4 shadow-lg overflow-y-auto flex flex-col space-y-4 rounded-r-lg">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Controls & Images</h2>
+            <button id="uploadButton" class="file-input-button w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200 ease-in-out">
+                <i class="fas fa-upload mr-2"></i> Add Images
+            </button>
+            <div>
+                <h3 class="text-lg font-medium mb-3 text-gray-600">Animation Settings</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label for="speedSlider" class="block text-sm font-medium text-gray-700 mb-1">Animation Speed</label>
+                        <input type="range" id="speedSlider" min="0.1" max="5" step="0.1" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        <span id="speedValue" class="text-sm text-gray-500">1.0x</span>
+                    </div>
+                    <div>
+                        <label for="intensitySlider" class="block text-sm font-medium text-gray-700 mb-1">Effect Intensity</label>
+                        <input type="range" id="intensitySlider" min="0" max="1" step="0.05" value="0.2" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        <span id="intensityValue" class="text-sm text-gray-500">0.20</span>
+                    </div>
+                     <div>
+                        <label for="gridSizeSlider" class="block text-sm font-medium text-gray-700 mb-1">Grid Size</label>
+                        <input type="range" id="gridSizeSlider" min="1" max="6" step="1" value="3" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        <span id="gridSizeValue" class="text-sm text-gray-500">3x3</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex-grow">
+                <h3 class="text-lg font-medium mb-2 text-gray-600">Your Images</h3>
+                <p class="text-sm text-gray-500 mb-2">Drag to reorder, click X to remove.</p>
+                <div id="imageList" class="space-y-2 border border-gray-200 p-2 rounded-lg min-h-[100px] bg-gray-50">
+                    <p id="noImagesText" class="text-gray-400 text-center italic">Drag & drop images here or use the button above.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="w-3/4 h-full bg-gray-200 flex items-center justify-center relative">
+             <canvas id="animationCanvas" class="rounded-lg shadow-inner"></canvas>
+             <div id="placeholderText">Drop images here or use the controls</div>
+        </div>
+
+        
+
+    </div>
+
+    <script>
+        // Wait for the DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+
+            // --- DOM Elements ---
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+            const uploadButton = document.getElementById('uploadButton');
+            const imageListContainer = document.getElementById('imageList');
+            const noImagesText = document.getElementById('noImagesText'); // For the list
+            const placeholderText = document.getElementById('placeholderText'); // For the canvas
+            const speedSlider = document.getElementById('speedSlider');
+            const speedValue = document.getElementById('speedValue');
+            const intensitySlider = document.getElementById('intensitySlider');
+            const intensityValue = document.getElementById('intensityValue');
+            const gridSizeSlider = document.getElementById('gridSizeSlider');
+            const gridSizeValue = document.getElementById('gridSizeValue');
+            const canvas = document.getElementById('animationCanvas');
+
+            // --- State Variables ---
+            let imagesData = []; // Holds ALL image data: { id, src, element, raster, targetRotation, driftX, driftY, driftTargetX, driftTargetY, lastDriftUpdateTime, rotation }
+            let sortable = null; // SortableJS instance
+
+            // --- Animation Settings ---
+            let animationSpeed = 1.0;
+            let effectIntensity = 0.2;
+            let gridSize = 3;
+            const MAX_ROTATION = 5;
+            const DRIFT_RANGE = 50;
+            const DRIFT_UPDATE_INTERVAL = 5000; // ms
+
+            // --- Paper.js Setup ---
+            paper.setup(canvas); // Initialize Paper.js on the canvas
+
+            // --- Initialization ---
+            function init() {
+                setupEventListeners();
+                updateSliderValuesDisplay(); // Initialize slider display
+                makeImageListSortable();
+                updatePlaceholderVisibility(); // Initial check
+                // Paper.js animation loop starts automatically via onFrame assignment below
+                console.log("Application initialized.");
+            }
+
+            // --- Event Listeners Setup ---
+            function setupEventListeners() {
+                // Drag and Drop
+                dropZone.addEventListener('dragenter', handleDragEnter, false);
+                dropZone.addEventListener('dragleave', handleDragLeave, false);
+                dropZone.addEventListener('dragover', handleDragOver, false);
+                dropZone.addEventListener('drop', handleDrop, false);
+                // File Input
+                fileInput.addEventListener('change', handleFileSelect, false);
+                uploadButton.addEventListener('click', () => fileInput.click());
+                // Sliders
+                speedSlider.addEventListener('input', handleSliderChange);
+                intensitySlider.addEventListener('input', handleSliderChange);
+                gridSizeSlider.addEventListener('input', handleSliderChange);
+                // Paper.js View Events (assigned directly below)
+            }
+
+            // --- Drag and Drop Handlers ---
+            function handleDragEnter(e) { e.preventDefault(); e.stopPropagation(); dropZone.classList.add('drag-over'); }
+            function handleDragLeave(e) {
+                e.preventDefault(); e.stopPropagation();
+                 setTimeout(() => { if (!dropZone.contains(e.relatedTarget)) { dropZone.classList.remove('drag-over'); } }, 50);
+            }
+            function handleDragOver(e) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'copy'; dropZone.classList.add('drag-over');}
+            function handleDrop(e) {
+                e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('drag-over');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) { handleFiles(files); }
+            }
+
+            // --- File Handling ---
+            function handleFileSelect(e) {
+                const files = e.target.files;
+                if (files.length > 0) { handleFiles(files); }
+                e.target.value = null; // Reset input
+            }
+
+            function handleFiles(files) {
+                noImagesText.style.display = 'none'; // Hide list placeholder
+                let filesToProcess = Array.from(files).filter(file => file.type.startsWith('image/'));
+                let processedCount = 0;
+
+                if (filesToProcess.length === 0 && files.length > 0) {
+                     console.warn("No valid image files selected.");
+                     updatePlaceholderVisibility();
+                     return;
+                }
+
+                filesToProcess.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        // Get the data URL result
+                        const dataUrl = event.target.result;
+
+                        // We still create an Image element for the thumbnail, but don't strictly need it for the raster source anymore
+                        const imgElement = new Image();
+                        imgElement.onload = () => {
+                            // Create data structure
+                            const newImageData = {
+                                id: Date.now() + Math.random(),
+                                src: dataUrl, // Store the data URL
+                                element: imgElement, // Keep for thumbnail or potential fallback
+                                raster: null, // Placeholder for Paper.js raster
+                                rotation: (Math.random() - 0.5) * 10,
+                                targetRotation: 0,
+                                driftX: 0,
+                                driftY: 0,
+                                driftTargetX: (Math.random() - 0.5) * DRIFT_RANGE * 2,
+                                driftTargetY: (Math.random() - 0.5) * DRIFT_RANGE * 2,
+                                lastDriftUpdateTime: Date.now()
+                            };
+
+                            // Add to main data array
+                            imagesData.push(newImageData);
+                            // Add thumbnail to UI list
+                            addImageThumbnail(newImageData);
+                            // Create and add Paper.js raster using the data URL
+                            createPaperRaster(newImageData);
+
+                            processedCount++;
+                            if (processedCount === filesToProcess.length) {
+                                 updateImageListOrder(); // Update order after all are processed
+                            }
+                        };
+                        imgElement.onerror = () => {
+                            // This error is just for the thumbnail element loading, less critical
+                            console.warn("Error loading image element for thumbnail:", file.name);
+                            // Still try to create the raster from the dataUrl
+                            const newImageData = {
+                                id: Date.now() + Math.random(),
+                                src: dataUrl,
+                                element: null, // Mark element as failed
+                                raster: null,
+                                rotation: (Math.random() - 0.5) * 10,
+                                targetRotation: 0,
+                                driftX: 0, driftY: 0,
+                                driftTargetX: (Math.random() - 0.5) * DRIFT_RANGE * 2,
+                                driftTargetY: (Math.random() - 0.5) * DRIFT_RANGE * 2,
+                                lastDriftUpdateTime: Date.now()
+                            };
+                            imagesData.push(newImageData);
+                            addImageThumbnail(newImageData); // Add thumbnail (might show broken image icon)
+                            createPaperRaster(newImageData); // Attempt raster creation
+
+                            processedCount++;
+                            if (processedCount === filesToProcess.length) {
+                                 updateImageListOrder();
+                                 updatePlaceholderVisibility();
+                            }
+                        };
+                        // Set the src for the thumbnail Image element
+                        imgElement.src = dataUrl;
+                    };
+                    reader.onerror = () => {
+                        console.error("Error reading file:", file.name);
+                        processedCount++;
+                        if (processedCount === filesToProcess.length) {
+                             updateImageListOrder();
+                             updatePlaceholderVisibility(); // Update if read fails
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                });
+
+                 let nonImageFiles = Array.from(files).filter(file => !file.type.startsWith('image/'));
+                 if (nonImageFiles.length > 0) {
+                     console.warn("Skipped non-image files:", nonImageFiles.map(f => f.name).join(', '));
+                 }
+            }
+
+            // --- Paper.js Raster Creation ---
+            function createPaperRaster(imgData) {
+                // Use the data URL string (imgData.src) as the source
+                var raster = new paper.Raster({
+                    source: imgData.src, // Use the data URL string directly
+                    opacity: 0,
+                    insert: false
+                });
+
+                // Assign to the data object
+                imgData.raster = raster;
+
+                raster.onLoad = function() {
+                    console.log('Raster loaded from data URL:', imgData.id);
+                    // Set initial position and rotation now that it's loaded
+                    raster.position = paper.view.center;
+                    raster.rotation = imgData.rotation;
+                    // Add it to the active layer (makes it visible)
+                    paper.project.activeLayer.addChild(raster);
+                    updatePlaceholderVisibility(); // Update placeholder as raster is ready
+                };
+
+                raster.onError = function(event) { // Add event argument
+                    // Log the error event for more details
+                    console.error('Failed to load raster source for image ID:', imgData.id, 'Error event:', event);
+                    // Remove the data entry if raster fails
+                    removeImageData(imgData.id); // Use the combined removal function
+                };
+            }
+
+
+            // --- UI Updates ---
+            function addImageThumbnail(imgData) {
+                const div = document.createElement('div');
+                div.classList.add('thumbnail-item', 'p-2', 'rounded-lg', 'bg-white', 'flex', 'items-center', 'space-x-2');
+                div.dataset.id = imgData.id;
+
+                // Use the pre-loaded element if available, otherwise use the src
+                const imgElement = document.createElement('img');
+                imgElement.src = imgData.src; // Always use src for consistency here
+                imgElement.classList.add('w-12', 'h-12', 'object-cover', 'rounded');
+                imgElement.alt = 'Thumbnail';
+                // Add error handler for the thumbnail image itself
+                imgElement.onerror = function() { this.style.display='none'; /* Hide broken thumbnail */ }
+
+                const removeButton = document.createElement('button');
+                removeButton.innerHTML = '<i class="fas fa-times"></i>';
+                removeButton.classList.add('remove-btn');
+                removeButton.onclick = (e) => {
+                    e.stopPropagation();
+                    removeImageData(imgData.id); // Call the main removal function
+                };
+
+                div.appendChild(imgElement);
+                div.appendChild(removeButton);
+                imageListContainer.appendChild(div);
+                updateNoImagesTextVisibility();
+            }
+
+            // Combined function to remove image data, raster, and thumbnail
+            function removeImageData(id) {
+                const indexToRemove = imagesData.findIndex(img => img.id === id);
+                if (indexToRemove === -1) return; // Not found
+
+                const imgDataToRemove = imagesData[indexToRemove];
+
+                // Remove Paper.js raster if it exists
+                if (imgDataToRemove.raster) {
+                    imgDataToRemove.raster.remove();
+                }
+
+                // Remove from data array
+                imagesData.splice(indexToRemove, 1);
+
+                // Remove thumbnail from UI
+                const thumbnailToRemove = imageListContainer.querySelector(`[data-id="${id}"]`);
+                if (thumbnailToRemove) {
+                    imageListContainer.removeChild(thumbnailToRemove);
+                }
+
+                console.log("Image removed (ID, Raster, Thumbnail):", id);
+                updateNoImagesTextVisibility();
+                updatePlaceholderVisibility();
+                updateImageListOrder(); // Re-evaluate order
+            }
+
+            // Updates visibility of the text in the image list sidebar
+             function updateNoImagesTextVisibility() {
+                 // Count based on thumbnails present in the list
+                 const thumbnailCount = imageListContainer.querySelectorAll('.thumbnail-item').length;
+                 noImagesText.style.display = thumbnailCount === 0 ? 'block' : 'none';
+             }
+
+            // Updates visibility of the placeholder text on the canvas
+            function updatePlaceholderVisibility() {
+                 // Count based on items in the main imagesData array that have a loaded raster
+                 const loadedRasterCount = imagesData.filter(d => d.raster && d.raster.loaded).length;
+                 placeholderText.style.display = loadedRasterCount === 0 ? 'block' : 'none';
+            }
+
+            function makeImageListSortable() {
+                if (sortable) { sortable.destroy(); }
+                sortable = new Sortable(imageListContainer, {
+                    animation: 150,
+                    ghostClass: 'bg-blue-100',
+                    chosenClass: 'bg-blue-200',
+                    dragClass: 'opacity-50',
+                    onEnd: updateImageListOrder,
+                });
+            }
+
+            // Called when SortableJS finishes dragging or when images are added/removed
+            function updateImageListOrder() {
+                const thumbnailElements = Array.from(imageListContainer.querySelectorAll('.thumbnail-item'));
+                const orderedIds = thumbnailElements.map(thumb => parseFloat(thumb.dataset.id));
+
+                // Reorder the main imagesData array based on the UI order
+                imagesData.sort((a, b) => orderedIds.indexOf(a.id) - orderedIds.indexOf(b.id));
+
+                // Assign new target rotation when order changes
+                imagesData.forEach(assignNewTargetRotation);
+                console.log("Image data order updated based on UI list.");
+            }
+
+            function handleSliderChange(e) {
+                const { id, value } = e.target;
+                const floatValue = parseFloat(value);
+                const intValue = parseInt(value);
+
+                let settingsChanged = false;
+                if (id === 'speedSlider' && animationSpeed !== floatValue) {
+                    animationSpeed = floatValue;
+                    speedValue.textContent = `${animationSpeed.toFixed(1)}x`;
+                    settingsChanged = true;
+                } else if (id === 'intensitySlider' && effectIntensity !== floatValue) {
+                    effectIntensity = floatValue;
+                    intensityValue.textContent = effectIntensity.toFixed(2);
+                    // Update targets based on new intensity
+                    imagesData.forEach(imgData => {
+                        assignNewTargetRotation(imgData);
+                        imgData.driftTargetX = (Math.random() - 0.5) * DRIFT_RANGE * 2 * effectIntensity;
+                        imgData.driftTargetY = (Math.random() - 0.5) * DRIFT_RANGE * 2 * effectIntensity;
+                    });
+                    settingsChanged = true;
+                } else if (id === 'gridSizeSlider' && gridSize !== intValue) {
+                    gridSize = intValue;
+                    gridSizeValue.textContent = `${gridSize}x${gridSize}`;
+                    settingsChanged = true;
+                }
+                if (settingsChanged) {
+                     console.log("Settings updated:", { animationSpeed, effectIntensity, gridSize });
+                }
+            }
+
+             function updateSliderValuesDisplay() {
+                 // Update internal variables from initial slider values
+                 animationSpeed = parseFloat(speedSlider.value);
+                 effectIntensity = parseFloat(intensitySlider.value);
+                 gridSize = parseInt(gridSizeSlider.value);
+                 // Update text displays
+                 speedValue.textContent = `${animationSpeed.toFixed(1)}x`;
+                 intensityValue.textContent = effectIntensity.toFixed(2);
+                 gridSizeValue.textContent = `${gridSize}x${gridSize}`;
+            }
+
+            // --- Helper: Assign New Rotation Target ---
+            function assignNewTargetRotation(imgData) {
+                 // Check if targetRotation is already defined, otherwise initialize it
+                 if (typeof imgData.targetRotation === 'undefined') {
+                    imgData.targetRotation = 0;
+                 }
+                 imgData.targetRotation = (Math.random() - 0.5) * 2 * MAX_ROTATION * effectIntensity;
+            }
+
+            // --- Paper.js Animation Loop ---
+            paper.view.onFrame = function(event) {
+                var effectiveSpeed = animationSpeed * (event.delta * 60); // Normalize speed
+                if (isNaN(effectiveSpeed) || effectiveSpeed <= 0) effectiveSpeed = 1;
+                var lerpFactor = Math.min(0.05 * effectiveSpeed, 1);
+                var slowLerpFactor = Math.min(0.01 * effectiveSpeed, 1);
+
+                var currentTimestamp = Date.now();
+
+                if (imagesData.length > 0) {
+                    var canvasWidth = paper.view.size.width;
+                    var canvasHeight = paper.view.size.height;
+                    if (canvasWidth <= 0 || canvasHeight <= 0) return; // Skip frame if canvas size is invalid
+
+                    var cellWidth = canvasWidth / gridSize;
+                    var cellHeight = canvasHeight / gridSize;
+
+                    imagesData.forEach(function(imgData, index) {
+                        var raster = imgData.raster;
+                        if (!raster || !raster.loaded || !raster.width || !raster.height) {
+                            return; // Skip if raster isn't ready
+                        }
+
+                        // --- Update Drift Target Periodically ---
+                        if (currentTimestamp - imgData.lastDriftUpdateTime > DRIFT_UPDATE_INTERVAL) {
+                            imgData.driftTargetX = (Math.random() - 0.5) * DRIFT_RANGE * 2 * effectIntensity;
+                            imgData.driftTargetY = (Math.random() - 0.5) * DRIFT_RANGE * 2 * effectIntensity;
+                            imgData.lastDriftUpdateTime = currentTimestamp;
+                            assignNewTargetRotation(imgData);
+                        }
+
+                        // --- Smoothly move drift offset ---
+                         // Initialize drift values if they don't exist
+                        imgData.driftX = imgData.driftX || 0;
+                        imgData.driftY = imgData.driftY || 0;
+                        imgData.driftTargetX = imgData.driftTargetX || 0;
+                        imgData.driftTargetY = imgData.driftTargetY || 0;
+
+                        imgData.driftX += (imgData.driftTargetX - imgData.driftX) * slowLerpFactor;
+                        imgData.driftY += (imgData.driftTargetY - imgData.driftY) * slowLerpFactor;
+
+                        // --- Calculate Target Position ---
+                        var baseCol = index % gridSize;
+                        var baseRow = Math.floor(index / gridSize);
+                        var baseTargetX = baseCol * cellWidth + cellWidth * 0.5;
+                        var baseTargetY = baseRow * cellHeight + cellHeight * 0.5;
+                        var targetX = baseTargetX + imgData.driftX;
+                        var targetY = baseTargetY + imgData.driftY;
+                        var targetPosition = new paper.Point(targetX, targetY);
+
+                        // --- Smoothly move image position ---
+                        // Ensure raster.position is initialized correctly
+                        if (!(raster.position instanceof paper.Point)) {
+                            raster.position = targetPosition; // Initialize if not a Point
+                        }
+                        var offset = targetPosition.subtract(raster.position);
+                        raster.position = raster.position.add(offset.multiply(lerpFactor));
+
+                        // --- Smoothly rotate image ---
+                         // Initialize rotation values if they don't exist
+                        imgData.rotation = imgData.rotation || 0;
+                        imgData.targetRotation = imgData.targetRotation || 0;
+
+                        imgData.rotation += (imgData.targetRotation - imgData.rotation) * slowLerpFactor;
+                        raster.rotation = imgData.rotation;
+
+                         // --- Calculate image scaling ---
+                        var sizeMultiplier = 1 + (effectIntensity * 0.3);
+                        var cellInnerWidth = cellWidth * 0.8 * sizeMultiplier;
+                        var cellInnerHeight = cellHeight * 0.8 * sizeMultiplier;
+                        var aspectRatio = raster.width / raster.height;
+                        var drawWidth, drawHeight;
+
+                        if (cellInnerWidth / aspectRatio <= cellInnerHeight) {
+                            drawWidth = cellInnerWidth;
+                            drawHeight = drawWidth / aspectRatio;
+                        } else {
+                            drawHeight = cellInnerHeight;
+                            drawWidth = drawHeight * aspectRatio;
+                        }
+                        drawWidth = Math.min(drawWidth, cellWidth * 1.5);
+                        drawHeight = Math.min(drawHeight, cellHeight * 1.5);
+
+                        var scaleX = drawWidth / raster.width;
+                        var scaleY = drawHeight / raster.height;
+                        var scale = Math.min(scaleX, scaleY); // Uniform scaling
+
+                        if (!isNaN(scale) && isFinite(scale)) {
+                             raster.scaling = new paper.Point(scale, scale);
+                        } else {
+                            raster.scaling = new paper.Point(1, 1); // Fallback
+                        }
+
+                        // --- Fade in ---
+                        if (raster.opacity < 1) {
+                            raster.opacity += 0.03 * effectiveSpeed;
+                            raster.opacity = Math.min(raster.opacity, 1);
+                        }
+                    }); // End forEach
+                }
+            } // End onFrame
+
+            // --- Paper.js Resize Handler ---
+            paper.view.onResize = function(event) {
+                 console.log('Paper.js view resized:', event.size.toString());
+            }
+
+            // --- Start the application ---
+            init();
+
+        }); // End DOMContentLoaded
+    </script>
+
+</body>
+</html>

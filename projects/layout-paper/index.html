@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Protected Links</title>
+    <!-- <link rel="stylesheet" href="../../node_modules/@uninspired/base/tokens.css"> -->
+    <link rel="stylesheet" href="us-tokens.css"> <!-- Link local tokens -->
+    <style>
+        html, body {
+            height: 100%; /* Ensure body takes full height */
+            margin: 0;
+            font-family: var(--us-font-family-default); /* Use token font */
+            background-color: var(--us-bg-canvas); /* Use token */
+            color: var(--us-fg-default); /* Use token */
+        }
+        body {
+            display: flex;
+            justify-content: center; /* Center horizontally */
+            align-items: center; /* Center vertically */
+            padding: var(--us-spacing-48-xl); /* Use token for padding */
+            box-sizing: border-box;
+        }
+        .container {
+             max-width: 400px; /* Limit width */
+             width: 100%;
+             padding: var(--us-spacing-24-l); /* Use token */
+             border: 1px solid var(--us-border-medium); /* Use token */
+             border-radius: var(--us-radii-micro-medium); /* Use token */
+             background-color: var(--us-bg-lowest); /* Use token - changed from surface-1 */
+             text-align: center; /* Center text inside container */
+        }
+        #linksContainer {
+            display: none; /* Initially hidden */
+            margin-top: var(--us-spacing-24-l); /* Use token */
+            border: 1px solid var(--us-border-soft); /* Use token */
+            padding: var(--us-spacing-16-m); /* Use token */
+            border-radius: var(--us-radii-micro-small); /* Use token */
+            background-color: var(--us-bg-low); /* Use token */
+            text-align: left; /* Align list items left */
+        }
+
+        label {
+           display: block;
+           margin-bottom: var(--us-spacing-8-s); /* Use token */
+           text-align: center; /* Center label text */
+           font-weight: var(--us-font-weight-bold); /* Use token */
+           font-size: var(--us-font-size-label-bold); /* Use token */
+           line-height: var(--us-line-height-label-bold);
+        }
+        input[type="password"] {
+          display: block; /* Ensure it takes full width */
+          width: 100%; /* Take full width */
+          padding: var(--us-spacing-8-s) var(--us-spacing-12); /* Use token */
+          border: 1px solid var(--us-border-medium); /* Use token */
+          border-radius: var(--us-radii-micro-small); /* Use token */
+          box-sizing: border-box; /* Include padding/border in width */
+          background-color: var(--us-bg-lowest); /* Use token - changed from surface-0 */
+          color: var(--us-fg-default);
+          font-size: var(--us-font-size-body);
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 0; /* Remove default margin */
+        }
+        li {
+            margin-bottom: var(--us-spacing-4-xs); /* Use token */
+        }
+        a {
+            color: var(--us-fg-default); /* Use token */
+            text-decoration: none;
+            font-size: var(--us-font-size-body);
+            line-height: var(--us-line-height-body);
+        }
+         a:hover {
+            text-decoration: none;
+            color: var(--us-fg-subtext); /* Use token */
+        }
+    </style>
+</head>
+<body>
+    <div class="container"> <!-- Added container div -->
+
+        <input type="password" id="passwordInput">
+
+        <div id="linksContainer">
+            <ul>
+                <!-- Links will be added here by JavaScript -->
+            </ul>
+        </div>
+
+        <script>
+            const passwordInput = document.getElementById('passwordInput');
+            const linksContainer = document.getElementById('linksContainer');
+            const linksList = linksContainer.querySelector('ul');
+
+            const correctPassword = "123";
+            const htmlFiles = [
+                'reveal.html',
+                'griddy.html',
+                'target.html',
+                'stagger.html',
+                // Add other html files here if needed
+            ];
+
+            function showLinks() {
+                if (passwordInput.value === correctPassword) {
+                    // Clear existing links (if any)
+                    linksList.innerHTML = '';
+                    // Populate links
+                    htmlFiles.forEach(file => {
+                        const listItem = document.createElement('li');
+                        const link = document.createElement('a');
+                        link.href = file;
+                        link.textContent = file;
+                        listItem.appendChild(link);
+                        linksList.appendChild(listItem);
+                    });
+                    // Show the container
+                    linksContainer.style.display = 'block';
+                     // Optional: Clear password field after successful entry
+                     passwordInput.value = '';
+                } else {
+                    alert('Incorrect password!');
+                }
+            }
+
+            // Optional: Allow submitting with Enter key in the password field
+            passwordInput.addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault(); // Prevent default form submission behavior
+                    showLinks();
+                }
+            });
+        </script>
+    </div> <!-- Moved container closing tag here -->
+</body>
+</html>

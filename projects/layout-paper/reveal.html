@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reveal</title> <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.12.17/paper-full.min.js"></script>
+    <link rel="stylesheet" href="us-tokens.css"> <!-- Link local tokens -->
+    <style>
+        /* Basic styling */
+        body {
+            font-family: 'Inter', sans-serif; margin: 0;
+            overflow: hidden;
+            background-color: var(--us-bg-canvas);
+        }
+        #imageCanvas {
+            width: 100%; height: 100%; display: block;
+            background-color: var(--us-bg-canvas); cursor: crosshair;
+        }
+
+        #leftPanel {
+            background-color: #F8F8F8;
+        }
+
+        /* Hide system cursor during replay */
+        body.replaying #imageCanvas { cursor: none; }
+        #imageList {
+            max-height: calc(100vh - 630px);
+            overflow-y: auto;
+        }
+        .thumbnail-container {
+            position: relative; width: 70px; height: 70px;
+            overflow: hidden; border-radius: 0.375rem;
+            border: 1px solid #e5e7eb; background-color: #e5e7eb;
+        }
+        .thumbnail-img { display: block; width: 100%; height: 100%; object-fit: cover; }
+        #imageList::-webkit-scrollbar { width: 6px; }
+        #imageList::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        #imageList::-webkit-scrollbar-thumb { background: #a0a0a0; border-radius: 10px; }
+        #imageList::-webkit-scrollbar-thumb:hover { background: #777; }
+        .main-layout { height: 100vh; }
+        /* Removed #customCursor CSS */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+        .controls-disabled input,
+        .controls-disabled button,
+        .controls-disabled label { opacity: 0.6; cursor: not-allowed; }
+        .controls-disabled input[type=file] { pointer-events: none; }
+    </style>
+    <script type="text/paperscript" canvas="imageCanvas">
+        // --- Paper.js Globals ---
+        var rasters = [];
+        var createdObjectUrls = [];
+
+        // Constants
+        var INTERNAL_BASELINE_SCALE = 0.05;
+
+        // Interaction & Scaling
+        var interactionRadius = 150;
+        var targetInteractionRadius = interactionRadius;
+        var baseScalePercentage = 100;
+        var currentBaseScaleFactor = INTERNAL_BASELINE_SCALE * (baseScalePercentage / 100);
+        var hoverScaleIncrease = 0.2;
+        var scaleSpeedFactor = 0.15;
+        var mousePos = view.center;
+
+        // Opacity Control
+        var startOpacity = 0.1;
+        var hoverOpacity = 1.0;
+        var opacitySpeedFactor = 0.15;
+
+        // Distribution Control
+        var spreadFactor = 1.0;
+
+        // Recording/Replay State
+        var showFadedOnRecord = false;
+        var isRecording = false;
+        var recordedPath = [];
+        var recordStartTime = 0;
+        var recordDuration = 5000;
+        var isPlaying = false;
+        var replayStartTime = 0;
+
+        // Replay Cursor (Paper.js object)
+        var replayCursorLayer = new Layer(); // Create a dedicated layer for the cursor
+        var replayCursor = new Path.Circle({
+            center: view.center,
+            radius: 10,
+            strokeColor: 'rgba(0, 0, 0, 0.7)',
+            strokeWidth: 2,
+            fillColor: 'rgba(255, 255, 255, 0.3)',
+            visible: false // Initially hidden
+        });
+        replayCursorLayer.addChild(replayCursor); // Add cursor to its layer
+        project.addLayer(replayCursorLayer); // Add the layer to the project
+        replayCursorLayer.bringToFront(); // Ensure cursor layer is on top
+
+        // --- Helper Functions ---
+        function getRandomPosition() {
+            var center = view.center;
+            var width = view.size.width * spreadFactor; var height = view.size.height * spreadFactor;
+            var halfWidth = width / 2; var halfHeight = height / 2;
+            var minX = center.x - halfWidth; var minY = center.y - halfHeight;
+            var randomX = Math.random() * width + minX; var randomY = Math.random() * height + minY;
+            randomX = Math.max(0, Math.min(view.size.width, randomX));
+            randomY = Math.max(0, Math.min(view.size.height, randomY));
+            return new Point(randomX, randomY);
+        }
+
+        function addImageToCanvas(imageUrl, objectUrl) {
+            if (objectUrl) { createdObjectUrls.push(objectUrl); }
+            // Ensure images are added to the default layer, not the cursor layer
+            project.activeLayer = project.layers[0]; // Activate default layer
+            var raster = new Raster({
+                source: imageUrl,
+                position: getRandomPosition(),
+                visible: true,
+                opacity: startOpacity,
+                data: { targetScale: currentBaseScaleFactor, targetOpacity: startOpacity, originalSize: null }
+            });
+            raster.onLoad = function() {
+                raster.data.originalSize = raster.size.clone();
+                raster.scale(currentBaseScaleFactor);
+                rasters.push(raster);
+            };
+            raster.onError = function(event) {
+                console.error('Failed to load image:', imageUrl.substring(0, 40) + "...", event);
+                 var index = createdObjectUrls.indexOf(objectUrl);
+                 if (index > -1) { try { URL.revokeObjectURL(createdObjectUrls[index]); } catch(e){} createdObjectUrls.splice(index, 1); }
+            };
+        }
+
+        function updateRasterInteraction(currentPoint) {
+             // Ensure interactions happen on the correct layer
+             project.activeLayer = project.layers[0];
+             rasters.forEach(function(raster) {
+                if (!raster.loaded || !raster.width || !raster.height || !raster.visible) return;
+                var distance = raster.position.getDistance(currentPoint);
+                var targetScaleValue; var targetOpacity;
+                if (distance < interactionRadius) {
+                    targetScaleValue = currentBaseScaleFactor * (1 + hoverScaleIncrease);
+                    targetOpacity = hoverOpacity;
+                } else {
+                    targetScaleValue = currentBaseScaleFactor;
+                    targetOpacity = startOpacity;
+                }
+                var currentScale = raster.scaling.x; var scaleDifference = targetScaleValue - currentScale;
+                if (scaleSpeedFactor >= 1.0) { raster.scaling = new Point(targetScaleValue, targetScaleValue); }
+                else if (Math.abs(scaleDifference) > 0.0001) { if (Math.abs(currentScale) > 0.0001) { raster.scale(1 + (scaleDifference / currentScale) * scaleSpeedFactor); } else { raster.scaling = new Point(targetScaleValue, targetScaleValue); } }
+                var opacityDifference = targetOpacity - raster.opacity;
+                if (opacitySpeedFactor >= 1.0) { raster.opacity = targetOpacity; }
+                else if (Math.abs(opacityDifference) > 0.001) { raster.opacity += opacityDifference * opacitySpeedFactor; }
+            });
+        }
+
+        function shuffleImagePositions() {
+            project.activeLayer = project.layers[0]; // Ensure correct layer
+            if (rasters.length === 0) { console.log("No images to shuffle."); return; }
+            console.log("Shuffling images with spread factor:", spreadFactor);
+            rasters.forEach(function(raster) { if (raster.loaded) { raster.position = getRandomPosition(); } });
+            view.draw();
+        }
+
+        // --- Event Handlers ---
+        function onMouseMove(event) {
+            if (!isPlaying) { mousePos = event.point; }
+        }
+
+        function onFrame(event) {
+            // Activate default layer for most operations
+            project.activeLayer = project.layers[0];
+
+            var radiusDifference = targetInteractionRadius - interactionRadius;
+            if (Math.abs(radiusDifference) > 0.1) { interactionRadius += radiusDifference * 0.1; }
+            else { interactionRadius = targetInteractionRadius; }
+            if (window.updateRadiusDisplay) { window.updateRadiusDisplay(Math.round(interactionRadius)); }
+
+            if (isRecording) {
+                var nowRec = Date.now(); var elapsedRecTime = nowRec - recordStartTime;
+                if (elapsedRecTime <= recordDuration) { if (mousePos && typeof mousePos.clone === 'function') { var pointToRecord = mousePos.clone(); recordedPath.push({ point: pointToRecord, time: elapsedRecTime }); } else { console.warn("mousePos invalid during recording."); recordedPath.push({ point: view.center.clone(), time: elapsedRecTime }); } if (window.updateStatus) { var timeLeftRec = (recordDuration - elapsedRecTime) / 1000; window.updateStatus("Recording... " + timeLeftRec.toFixed(1) + "s left"); } }
+                else { isRecording = false; console.log("Recording finished. Points:", recordedPath.length); if (window.updateStatus) window.updateStatus("Recording complete."); if (window.enableReplayButton) window.enableReplayButton(true); if (window.resetRecordButton) window.resetRecordButton(); }
+            }
+
+            var currentPointForInteraction = mousePos;
+            if (isPlaying) {
+                replayCursor.visible = true; // Make Paper.js cursor visible
+                var nowPlay = Date.now(); var elapsedReplayTime = nowPlay - replayStartTime;
+                var totalRecordTime = recordedPath.length > 0 ? recordedPath[recordedPath.length - 1].time : 0;
+                if (elapsedReplayTime <= totalRecordTime && recordedPath.length > 1) {
+                    var targetIndex = -1;
+                    for (var i = 0; i < recordedPath.length; i++) { if (recordedPath[i].time >= elapsedReplayTime) { targetIndex = i; break; } }
+                    if (targetIndex === -1) targetIndex = recordedPath.length - 1; if (targetIndex === 0) targetIndex = 1;
+                    var p1 = recordedPath[targetIndex - 1]; var p2 = recordedPath[targetIndex];
+                    if (p1 && p2 && p1.point && p2.point && typeof p1.point.add === 'function' && typeof p1.point.subtract === 'function') {
+                        var segmentDuration = p2.time - p1.time; var timeIntoSegment = elapsedReplayTime - p1.time;
+                        var t = segmentDuration > 0 ? Math.min(1, Math.max(0, timeIntoSegment / segmentDuration)) : 1;
+                        var vector = p2.point.subtract(p1.point); var offset = vector.multiply(t);
+                        var interpolatedPoint = p1.point.add(offset);
+                        currentPointForInteraction = interpolatedPoint;
+
+                        // *** Update Paper.js cursor position ***
+                        replayCursor.position = interpolatedPoint;
+                        replayCursorLayer.bringToFront(); // Keep cursor layer on top
+
+                        // Remove call to window.updateCustomCursorPosition
+                        // if (window.updateCustomCursorPosition) { ... }
+                    } else {
+                        console.warn("Invalid points in replay."); isPlaying = false; replayCursor.visible = false; // Hide cursor on error
+                    }
+                    if (window.updateStatus) { var timeLeftPlay = (totalRecordTime - elapsedReplayTime) / 1000; window.updateStatus("Replaying... " + timeLeftPlay.toFixed(1) + "s left"); }
+                } else {
+                    isPlaying = false; replayCursor.visible = false; // Hide cursor when done
+                    console.log("Replay finished.");
+                    if (window.updateStatus) window.updateStatus("Replay complete.");
+                    if (window.setReplayingState) window.setReplayingState(false);
+                    if (window.resetRecordButton) window.resetRecordButton();
+                    currentPointForInteraction = (mousePos && typeof mousePos.clone === 'function') ? mousePos : view.center;
+                }
+            } else {
+                replayCursor.visible = false; // Ensure cursor is hidden when not playing
+                currentPointForInteraction = (mousePos && typeof mousePos.clone === 'function') ? mousePos : view.center;
+            }
+
+             if (currentPointForInteraction && typeof currentPointForInteraction.getDistance === 'function') { updateRasterInteraction(currentPointForInteraction); }
+             else if (mousePos && typeof mousePos.getDistance === 'function') { updateRasterInteraction(mousePos); }
+             else { updateRasterInteraction(view.center); }
+        }
+
+        function onResize(event) {
+             // Ensure cursor layer stays on top after resize potentially rebuilds layers
+             replayCursorLayer.bringToFront();
+             setTimeout(function() {
+                 project.activeLayer = project.layers[0]; // Ensure default layer active
+                 rasters.forEach(function(raster) { if (raster.loaded && raster.bounds) { var halfWidth = raster.bounds.width / 2; var halfHeight = raster.bounds.height / 2; var viewLeft = (view.bounds && typeof view.bounds.left === 'number') ? view.bounds.left : 0; var viewRight = (view.bounds && typeof view.bounds.right === 'number') ? view.bounds.right : paper.view.size.width; var viewTop = (view.bounds && typeof view.bounds.top === 'number') ? view.bounds.top : 0; var viewBottom = (view.bounds && typeof view.bounds.bottom === 'number') ? view.bounds.bottom : paper.view.size.height; raster.position.x = Math.max(viewLeft + halfWidth, Math.min(raster.position.x, viewRight - halfWidth)); raster.position.y = Math.max(viewTop + halfHeight, Math.min(raster.position.y, viewBottom - halfHeight)); } }); console.log("Canvas resized."); }, 50);
+        }
+
+        // --- Global Access ---
+        window.addImageToCanvasGlobal = addImageToCanvas;
+        window.clearCanvasGlobal = function() {
+            project.activeLayer = project.layers[0]; // Activate default layer before clearing
+            isRecording = false; isPlaying = false; if (window.setReplayingState) window.setReplayingState(false); if (window.resetRecordButton) window.resetRecordButton(); if (project && project.activeLayer) { project.activeLayer.removeChildren(); } else { console.warn("Paper.js project/layer not available."); } rasters = []; recordedPath = []; createdObjectUrls.forEach(function(url) { try { URL.revokeObjectURL(url); } catch (e) { console.warn("Error revoking URL:", url, e); } }); createdObjectUrls = []; console.log("Canvas cleared."); if (window.enableReplayButton) window.enableReplayButton(false); if (window.updateStatus) window.updateStatus("Canvas cleared.");
+        };
+        window.setInteractionRadius = function(newRadius) { targetInteractionRadius = Math.max(10, newRadius); };
+        window.setBaseScalePercentage = function(newScalePercent) { /* ... no changes ... */
+            baseScalePercentage = Math.max(10, Math.min(200, newScalePercent)); var newScaleFactor = INTERNAL_BASELINE_SCALE * (baseScalePercentage / 100); newScaleFactor = Math.max(0.005, newScaleFactor); if (Math.abs(currentBaseScaleFactor - newScaleFactor) > 0.0001) { currentBaseScaleFactor = newScaleFactor; console.log("Base scale percentage:", baseScalePercentage + "%, Factor:", currentBaseScaleFactor.toFixed(4)); var checkPoint = (mousePos && typeof mousePos.getDistance === 'function') ? mousePos : view.center; rasters.forEach(function(raster) { if (raster.loaded && raster.position) { var distance = raster.position.getDistance(checkPoint); if (distance >= interactionRadius) { raster.scaling = new Point(currentBaseScaleFactor, currentBaseScaleFactor); } raster.data.targetScale = currentBaseScaleFactor; } }); }
+        };
+        window.setHoverScaleIncrease = function(increasePercent) { /* ... no changes ... */
+            hoverScaleIncrease = Math.max(0, Math.min(2.0, increasePercent / 100)); console.log("Hover scale increase factor:", hoverScaleIncrease);
+        };
+        window.setScaleSpeed = function(speedValue) { /* ... no changes ... */
+            var minFactor = 0.05; var maxFactor = 1.0; scaleSpeedFactor = minFactor + (speedValue / 100) * (maxFactor - minFactor); scaleSpeedFactor = Math.max(minFactor, Math.min(maxFactor, scaleSpeedFactor)); console.log("Scale speed factor:", scaleSpeedFactor);
+        };
+        window.setStartOpacity = function(newOpacity) { /* ... no changes ... */
+            startOpacity = Math.max(0.0, Math.min(1.0, newOpacity)); console.log("Start opacity:", startOpacity); var checkPoint = (mousePos && typeof mousePos.getDistance === 'function') ? mousePos : view.center; rasters.forEach(function(raster) { if (raster.loaded && raster.position) { var distance = raster.position.getDistance(checkPoint); if (distance >= interactionRadius) { raster.opacity = startOpacity; } } });
+        };
+        window.setHoverOpacity = function(newOpacity) { /* ... no changes ... */
+            hoverOpacity = Math.max(0.0, Math.min(1.0, newOpacity)); console.log("Hover opacity:", hoverOpacity);
+        };
+        window.setOpacitySpeed = function(speedValue) { /* ... no changes ... */
+             var minFactor = 0.05; var maxFactor = 1.0; opacitySpeedFactor = minFactor + (speedValue / 100) * (maxFactor - minFactor); opacitySpeedFactor = Math.max(minFactor, Math.min(maxFactor, opacitySpeedFactor)); console.log("Opacity speed factor:", opacitySpeedFactor);
+        };
+        window.setSpreadFactor = function(value) { /* ... no changes ... */
+             var newSpreadFactor = Math.max(0.1, Math.min(2.0, value / 100)); if (spreadFactor !== newSpreadFactor) { spreadFactor = newSpreadFactor; console.log("Spread Factor:", spreadFactor); shuffleImagePositions(); }
+        };
+        window.shuffleImages = shuffleImagePositions;
+        window.setOpacityToggle = function(isOn) { showFadedOnRecord = !!isOn; console.log("Show 10% Opacity toggle:", showFadedOnRecord); };
+        window.setRecordDuration = function(seconds) { recordDuration = Math.max(1, parseInt(seconds) || 5) * 1000; console.log("Record duration:", recordDuration / 1000, "s"); };
+        window.startRecording = function() { /* ... no changes ... */
+             if (isRecording || isPlaying) return; isRecording = true; recordedPath = []; recordStartTime = Date.now(); console.log("Recording started"); if (window.updateStatus) window.updateStatus("Recording starting..."); if (window.enableReplayButton) window.enableReplayButton(false);
+        };
+        window.startReplay = function() { /* ... no changes ... */
+             if (isRecording || isPlaying || recordedPath.length < 2) { console.warn("Cannot start replay."); if (recordedPath.length < 2 && window.updateStatus) window.updateStatus("No recording."); return; } isPlaying = true; replayStartTime = Date.now(); console.log("Replay started."); if (window.updateStatus) window.updateStatus("Replay starting..."); if (window.setReplayingState) window.setReplayingState(true);
+        };
+        window.getRecordedPathLength = function() { return recordedPath.length; };
+
+        // --- Initialization Complete Callback ---
+        console.log("PaperScript finished. Calling paperScriptReady...");
+        if (window.paperScriptReady) { window.paperScriptReady(); }
+        else { console.error("paperScriptReady function not found!"); }
+
+    </script>
+</head>
+<body class="bg-gray-100">
+    <div class="main-layout flex h-screen">
+        <div id="leftPanel" class="w-1/4 min-w-[300px] max-w-[400px] bg-white p-4 shadow-lg flex flex-col h-full overflow-y-auto controls-disabled">
+            <h2 class="text-xl font-semibold mb-4 text-gray-800 border-b pb-2">Controls</h2>
+
+            <div class="mb-4">
+                <label for="imageUpload" class="block text-sm font-medium text-gray-700 mb-1">Upload Images:</label>
+                <input type="file" id="imageUpload" accept="image/*" multiple disabled class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+            </div>
+
+            <button id="clearCanvasBtn" disabled class="mb-4 w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out text-sm disabled:opacity-60 disabled:cursor-not-allowed">
+                Clear Canvas & Recordings
+            </button>
+
+            <h3 class="text-lg font-semibold mb-2 text-gray-700 border-t pt-3">Distribution</h3>
+            <div class="mb-3">
+                <label for="spreadSlider" class="block text-sm font-medium text-gray-700 mb-1">Image Spread: <span id="spreadValue" class="font-bold">100</span>%</label>
+                <input type="range" id="spreadSlider" min="10" max="200" step="1" value="100" disabled class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed">
+            </div>
+             <button id="shuffleBtn" disabled class="mb-4 w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out text-sm disabled:opacity-60 disabled:cursor-not-allowed">
+                Shuffle Positions
+            </button>
+
+            <h3 class="text-lg font-semibold mb-2 text-gray-700 border-t pt-3">Interaction</h3>
+             <div class="mb-3">
+                <label for="radiusSlider" class="block text-sm font-medium text-gray-700 mb-1">Hover Radius: <span id="radiusValue" class="font-bold">150</span>px</label>
+                <input type="range" id="radiusSlider" min="10" max="500" value="150" disabled class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed">
+            </div>
+             <div class="mb-3">
+                <label for="baseScaleSlider" class="block text-sm font-medium text-gray-700 mb-1">Base Size (%): <span id="baseScaleValue" class="font-bold">100</span>%</label>
+                <input type="range" id="baseScaleSlider" min="10" max="200" step="1" value="100" disabled class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed">
+            </div>
+             <div class="mb-3">
+                 <label for="maxScaleSlider" class="block text-sm font-medium text-gray-700 mb-1">Hover Scale Increase: <span id="maxScaleValue" class="font-bold">20</span>%</label>
+                <input type="range" id="maxScaleSlider" min="0" max="200" step="1" value="20" disabled class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed">
+            </div>
+            <div class="mb-3">
+                <label for="scaleSpeedSlider" class="block text-sm font-medium text-gray-700 mb-1">Scale Transition Speed (Slow to Instant): <span id="scaleSpeedValue" class="font-bold">15</span></label>
+                <input type="range" id="scaleSpeedSlider" min="0" max="100" step="1" value="15" disabled class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed">
+            </div>
+
+            <h3 class="text-lg font-semibold mb-2 text-gray-700 border-t pt-3">Opacity</h3>
+             <div class="mb-3">
+                <label for="startOpacitySlider" class="block text-sm font-medium text-gray-700 mb-1">Start Opacity (Outside Hover): <span id="startOpacityValue" class="font-bold">0.1</span></label>
+                <input type="range" id="startOpacitySlider" min="0.0" max="1.0" step="0.01" value="0.1" disabled class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed">
+            </div>
+             <div class="mb-3">
+                <label for="hoverOpacitySlider" class="block text-sm font-medium text-gray-700 mb-1">Hover Opacity (Inside Hover): <span id="hoverOpacityValue" class="font-bold">1.0</span></label>
+                <input type="range" id="hoverOpacitySlider" min="0.0" max="1.0" step="0.01" value="1.0" disabled class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed">
+            </div>
+             <div class="mb-3">
+                <label for="opacitySpeedSlider" class="block text-sm font-medium text-gray-700 mb-1">Opacity Transition Speed (Slow to Instant): <span id="opacitySpeedValue" class="font-bold">15</span></label>
+                <input type="range" id="opacitySpeedSlider" min="0" max="100" step="1" value="15" disabled class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed">
+            </div>
+
+            <h3 class="text-lg font-semibold mb-2 text-gray-700 border-t pt-3">Tracking & Replay</h3>
+             <div class="mb-3">
+                 <label for="durationInput" class="block text-sm font-medium text-gray-700 mb-1">Tracking Duration (seconds):</label>
+                 <input type="number" id="durationInput" value="5" min="1" max="60" disabled class="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed">
+             </div>
+             <div class="mb-3 flex items-center">
+                 <input type="checkbox" id="opacityToggle" disabled class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 mr-2 disabled:opacity-60 disabled:cursor-not-allowed">
+                 <label for="opacityToggle" class="text-sm font-medium text-gray-700">(Toggle for recording - unused)</label>
+             </div>
+             <div class="mb-2 flex space-x-2">
+                 <button id="recordBtn" disabled class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out text-sm disabled:opacity-60 disabled:cursor-not-allowed">
+                     Record
+                 </button>
+                 <button id="replayBtn" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out text-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                     Replay
+                 </button>
+             </div>
+             <div id="statusArea" class="text-sm text-gray-600 h-5 mt-1 text-center">Initializing...</div>
+
+            <h3 class="text-lg font-semibold mb-2 text-gray-700 border-t pt-3">Uploaded Images</h3>
+            <div id="imageList" class="flex-grow grid grid-cols-4 gap-1 pr-1"> </div>
+        </div>
+
+        <div class="flex-grow bg-gray-200 h-full">
+            <canvas id="imageCanvas" resize></canvas>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const leftPanel = document.getElementById('leftPanel');
+        const imageUpload = document.getElementById('imageUpload');
+        const imageList = document.getElementById('imageList');
+        const clearCanvasBtn = document.getElementById('clearCanvasBtn');
+        // Distribution
+        const spreadSlider = document.getElementById('spreadSlider');
+        const spreadValueSpan = document.getElementById('spreadValue');
+        const shuffleBtn = document.getElementById('shuffleBtn');
+        // Interaction
+        const radiusSlider = document.getElementById('radiusSlider');
+        const radiusValueSpan = document.getElementById('radiusValue');
+        const baseScaleSlider = document.getElementById('baseScaleSlider');
+        const baseScaleValueSpan = document.getElementById('baseScaleValue');
+        const maxScaleSlider = document.getElementById('maxScaleSlider');
+        const maxScaleValueSpan = document.getElementById('maxScaleValue');
+        const scaleSpeedSlider = document.getElementById('scaleSpeedSlider');
+        const scaleSpeedValueSpan = document.getElementById('scaleSpeedValue');
+        // Opacity
+        const startOpacitySlider = document.getElementById('startOpacitySlider');
+        const startOpacityValueSpan = document.getElementById('startOpacityValue');
+        const hoverOpacitySlider = document.getElementById('hoverOpacitySlider');
+        const hoverOpacityValueSpan = document.getElementById('hoverOpacityValue');
+        const opacitySpeedSlider = document.getElementById('opacitySpeedSlider');
+        const opacitySpeedValueSpan = document.getElementById('opacitySpeedValue');
+        // Tracking
+        const durationInput = document.getElementById('durationInput');
+        const opacityToggle = document.getElementById('opacityToggle');
+        const recordBtn = document.getElementById('recordBtn');
+        const replayBtn = document.getElementById('replayBtn');
+        const statusArea = document.getElementById('statusArea');
+        // Removed customCursorElement reference
+        // const customCursorElement = document.getElementById('customCursor');
+        const canvasElement = document.getElementById('imageCanvas');
+
+        // --- Global Functions (for PaperScript access) ---
+        window.updateSpreadValueDisplay = value => { if (spreadValueSpan) spreadValueSpan.textContent = value; };
+        window.updateRadiusDisplay = value => { if (radiusValueSpan) radiusValueSpan.textContent = value; };
+        window.updateBaseScaleDisplay = value => { if (baseScaleValueSpan) baseScaleValueSpan.textContent = value; };
+        window.updateMaxScaleDisplay = value => { if (maxScaleValueSpan) maxScaleValueSpan.textContent = value; };
+        window.updateScaleSpeedDisplay = value => { if (scaleSpeedValueSpan) scaleSpeedValueSpan.textContent = value; };
+        window.updateStartOpacityDisplay = value => { if (startOpacityValueSpan) startOpacityValueSpan.textContent = parseFloat(value).toFixed(2); };
+        window.updateHoverOpacityDisplay = value => { if (hoverOpacityValueSpan) hoverOpacityValueSpan.textContent = parseFloat(value).toFixed(2); };
+        window.updateOpacitySpeedDisplay = value => { if (opacitySpeedValueSpan) opacitySpeedValueSpan.textContent = value; };
+        window.updateStatus = message => { if (statusArea) statusArea.textContent = message; };
+        window.enableReplayButton = enabled => { if (replayBtn) replayBtn.disabled = !enabled; };
+        window.paperScriptHasRecording = () => { return typeof window.getRecordedPathLength === 'function' && window.getRecordedPathLength() > 1; };
+        window.setReplayingState = isReplaying => {
+             document.body.classList.toggle('replaying', isReplaying);
+             const controls = [recordBtn, replayBtn, imageUpload, clearCanvasBtn, shuffleBtn, spreadSlider, radiusSlider, baseScaleSlider, maxScaleSlider, scaleSpeedSlider, startOpacitySlider, hoverOpacitySlider, opacitySpeedSlider, durationInput, opacityToggle];
+             controls.forEach(control => { if (control) control.disabled = isReplaying; });
+             if (!isReplaying) { if(replayBtn) replayBtn.disabled = !window.paperScriptHasRecording(); if(recordBtn) recordBtn.disabled = false; }
+        };
+         // *** Removed window.updateCustomCursorPosition ***
+        window.resetRecordButton = () => {
+             if (recordBtn) { recordBtn.disabled = document.body.classList.contains('replaying'); recordBtn.textContent = "Record"; recordBtn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600', 'bg-red-500'); recordBtn.classList.add('bg-green-500', 'hover:bg-green-600'); if (!document.body.classList.contains('replaying')) { imageUpload.disabled = false; clearCanvasBtn.disabled = false; shuffleBtn.disabled = false; } } if (replayBtn && !document.body.classList.contains('replaying')) { replayBtn.disabled = !window.paperScriptHasRecording(); }
+        };
+
+        // --- PaperScript Ready Callback ---
+        window.paperScriptReady = () => {
+            console.log("paperScriptReady called. Initializing controls.");
+             leftPanel.classList.remove('controls-disabled');
+             const controlsToEnable = [imageUpload, clearCanvasBtn, shuffleBtn, spreadSlider, radiusSlider, baseScaleSlider, maxScaleSlider, scaleSpeedSlider, startOpacitySlider, hoverOpacitySlider, opacitySpeedSlider, durationInput, opacityToggle, recordBtn];
+             controlsToEnable.forEach(control => { if(control) control.disabled = false; });
+             if(replayBtn) replayBtn.disabled = true;
+
+            // Initialize displays
+            window.updateSpreadValueDisplay(spreadSlider.value);
+            window.updateRadiusDisplay(radiusSlider.value);
+            window.updateBaseScaleDisplay(baseScaleSlider.value);
+            window.updateMaxScaleDisplay(maxScaleSlider.value);
+            window.updateScaleSpeedDisplay(scaleSpeedSlider.value);
+            window.updateStartOpacityDisplay(startOpacitySlider.value);
+            window.updateHoverOpacityDisplay(hoverOpacitySlider.value);
+            window.updateOpacitySpeedDisplay(opacitySpeedSlider.value);
+
+            // Set initial values in Paper.js script
+            if (window.setSpreadFactor) window.setSpreadFactor(parseInt(spreadSlider.value, 10));
+            if (window.setInteractionRadius) window.setInteractionRadius(parseInt(radiusSlider.value, 10));
+            if (window.setBaseScalePercentage) window.setBaseScalePercentage(parseInt(baseScaleSlider.value, 10));
+            if (window.setHoverScaleIncrease) window.setHoverScaleIncrease(parseInt(maxScaleSlider.value, 10));
+            if (window.setScaleSpeed) window.setScaleSpeed(parseInt(scaleSpeedSlider.value, 10));
+            if (window.setStartOpacity) window.setStartOpacity(parseFloat(startOpacitySlider.value));
+            if (window.setHoverOpacity) window.setHoverOpacity(parseFloat(hoverOpacitySlider.value));
+            if (window.setOpacitySpeed) window.setOpacitySpeed(parseInt(opacitySpeedSlider.value, 10));
+            if (window.setOpacityToggle) window.setOpacityToggle(opacityToggle.checked);
+            if (window.setRecordDuration) window.setRecordDuration(parseInt(durationInput.value, 10));
+
+            updateStatus("Ready.");
+
+            // --- Attach Event Listeners ---
+            imageUpload.addEventListener('change', (event) => { /* ... (no changes) ... */
+                const files = event.target.files; if (!files || imageUpload.disabled) return; Array.from(files).forEach(file => { if (file.type.startsWith('image/')) { const reader = new FileReader(); reader.onload = function(e) { const imageUrl = e.target.result; const thumbContainer = document.createElement('div'); thumbContainer.className = 'thumbnail-container group relative'; const imgElement = document.createElement('img'); imgElement.src = imageUrl; imgElement.alt = file.name; imgElement.className = 'thumbnail-img'; imgElement.onerror = () => { imgElement.alt = "Invalid"; imgElement.src = `https://placehold.co/70x70/e5e7eb/9ca3af?text=Error`; thumbContainer.style.backgroundColor = '#fecaca'; }; thumbContainer.appendChild(imgElement); imageList.appendChild(thumbContainer); if (window.addImageToCanvasGlobal) { const objectURL = URL.createObjectURL(file); window.addImageToCanvasGlobal(imageUrl, objectURL); } else { console.error("addImageToCanvasGlobal missing."); updateStatus("Error: Canvas function missing."); } }; reader.onerror = (e) => console.error("FileReader error:", e); reader.readAsDataURL(file); } }); event.target.value = null;
+             });
+            clearCanvasBtn.addEventListener('click', () => { /* ... (no changes) ... */
+                if (clearCanvasBtn.disabled) return; if (window.clearCanvasGlobal) { window.clearCanvasGlobal(); } imageList.innerHTML = ''; imageUpload.value = null; window.resetRecordButton();
+             });
+            // Distribution Listeners
+            spreadSlider.addEventListener('input', (event) => { /* ... (no changes) ... */
+                 if (spreadSlider.disabled) return; const value = parseInt(event.target.value, 10); window.updateSpreadValueDisplay(value); if (window.setSpreadFactor) window.setSpreadFactor(value);
+            });
+            shuffleBtn.addEventListener('click', () => { /* ... (no changes) ... */
+                 if (shuffleBtn.disabled) return; if (window.shuffleImages) { window.shuffleImages(); } else { console.error("Shuffle function not available."); updateStatus("Error: Shuffle function missing."); }
+            });
+            // Interaction Listeners
+            radiusSlider.addEventListener('input', (event) => { /* ... (no changes) ... */
+                if (radiusSlider.disabled) return; const value = parseInt(event.target.value, 10); window.updateRadiusDisplay(value); if (window.setInteractionRadius) window.setInteractionRadius(value);
+             });
+            baseScaleSlider.addEventListener('input', (event) => { /* ... (no changes) ... */
+                 if (baseScaleSlider.disabled) return; const value = parseInt(event.target.value, 10); window.updateBaseScaleDisplay(value); if (window.setBaseScalePercentage) window.setBaseScalePercentage(value);
+            });
+            maxScaleSlider.addEventListener('input', (event) => { /* ... (no changes) ... */
+                 if (maxScaleSlider.disabled) return; const value = parseInt(event.target.value, 10); window.updateMaxScaleDisplay(value); if (window.setHoverScaleIncrease) window.setHoverScaleIncrease(value);
+            });
+            scaleSpeedSlider.addEventListener('input', (event) => { /* ... (no changes) ... */
+                 if (scaleSpeedSlider.disabled) return; const value = parseInt(event.target.value, 10); window.updateScaleSpeedDisplay(value); if (window.setScaleSpeed) window.setScaleSpeed(value);
+            });
+            // Opacity Listeners
+            startOpacitySlider.addEventListener('input', (event) => { /* ... (no changes) ... */
+                 if (startOpacitySlider.disabled) return; const value = parseFloat(event.target.value); window.updateStartOpacityDisplay(value); if (window.setStartOpacity) window.setStartOpacity(value);
+            });
+            hoverOpacitySlider.addEventListener('input', (event) => { /* ... (no changes) ... */
+                 if (hoverOpacitySlider.disabled) return; const value = parseFloat(event.target.value); window.updateHoverOpacityDisplay(value); if (window.setHoverOpacity) window.setHoverOpacity(value);
+            });
+            opacitySpeedSlider.addEventListener('input', (event) => { /* ... (no changes) ... */
+                 if (opacitySpeedSlider.disabled) return; const value = parseInt(event.target.value, 10); window.updateOpacitySpeedDisplay(value); if (window.setOpacitySpeed) window.setOpacitySpeed(value);
+            });
+            // Tracking Listeners
+            opacityToggle.addEventListener('change', (event) => { /* ... (no changes) ... */
+                 if (opacityToggle.disabled) return; if (window.setOpacityToggle) window.setOpacityToggle(event.target.checked);
+            });
+            durationInput.addEventListener('change', (event) => { /* ... (no changes) ... */
+                 if (durationInput.disabled) return; const value = parseInt(event.target.value, 10); if (window.setRecordDuration) window.setRecordDuration(value);
+            });
+            recordBtn.addEventListener('click', () => { /* ... (no changes) ... */
+                if (recordBtn.disabled) return; recordBtn.disabled = true; replayBtn.disabled = true; imageUpload.disabled = true; clearCanvasBtn.disabled = true; shuffleBtn.disabled = true; recordBtn.classList.remove('bg-green-500', 'hover:bg-green-600'); recordBtn.classList.add('bg-yellow-500', 'hover:bg-yellow-600'); let countdown = 3; updateStatus(`Starting in ${countdown}...`); const interval = setInterval(() => { countdown--; if (countdown > 0) { updateStatus(`Starting in ${countdown}...`); } else { clearInterval(interval); updateStatus("Recording..."); recordBtn.textContent = "Recording..."; recordBtn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600'); recordBtn.classList.add('bg-red-500'); if (window.startRecording) { window.startRecording(); } else { updateStatus("Error: Recording function not ready."); window.resetRecordButton(); } } }, 1000);
+             });
+            replayBtn.addEventListener('click', () => { /* ... (no changes) ... */
+                 if (replayBtn.disabled) return; if (window.startReplay) { window.startReplay(); } else { updateStatus("Error: Replay function not ready."); recordBtn.disabled = false; replayBtn.disabled = !window.paperScriptHasRecording(); }
+             });
+
+        }; // End of paperScriptReady function
+
+        // --- Initial Setup ---
+        console.log("Main script loaded. Waiting for paperScriptReady callback...");
+
+    </script>
+
+</body>
+</html>

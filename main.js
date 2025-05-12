@@ -76,6 +76,67 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // --- Add pageshow listener ---
+    window.addEventListener('pageshow', (event) => {
+        // Check if the page is loaded from the back-forward cache
+        if (event.persisted) {
+            console.log("Page loaded from bfcache. Resetting elements.");
+            // Reset animation flag if necessary
+            isAnimating = false; 
+
+            // Select elements that were animated
+            const headerContent = document.querySelector('.header-content');
+            const infoBlocks = document.querySelector('.info-blocks');
+            const allProjectImages = document.querySelectorAll('.project-image');
+            const allProjectHeaders = document.querySelectorAll('.project-header');
+            const canvasContainer = document.getElementById('canvasContainer');
+
+            const elementsToReset = [
+                headerContent, 
+                infoBlocks, 
+                canvasContainer, 
+                ...allProjectImages, 
+                ...allProjectHeaders
+            ];
+            const classesToRemove = ['fade-out', 'slide-up', 'fade-in', 'fade-out-transition', 'slide-up-transition', 'fade-in-transition'];
+
+            elementsToReset.forEach(element => {
+                if (element) {
+                    classesToRemove.forEach(cls => element.classList.remove(cls));
+                    // Reset inline styles potentially added by animations
+                    element.style.opacity = ''; 
+                    element.style.animation = ''; // Reset animation property
+                    if (element.classList.contains('project-image')) {
+                       element.style.maxHeight = ''; // Reset max-height for images
+                       element.style.paddingTop = '';
+                       element.style.paddingBottom = '';
+                    }
+                     // Ensure canvas starts hidden again if we navigate back quickly before its fade-in completes
+                    if (element === canvasContainer) {
+                         element.style.opacity = '0'; 
+                    }
+                }
+            });
+             // Re-apply initial styles if needed (e.g., if elements should start faded in on normal load)
+             // For now, we assume elements should be visible by default unless canvas.
+             if (headerContent) headerContent.style.opacity = '1';
+             if (infoBlocks) infoBlocks.style.opacity = '1';
+             allProjectImages.forEach(img => img.style.opacity = '1');
+             allProjectHeaders.forEach(hdr => hdr.style.opacity = '1');
+
+
+            // Optional: Re-initialize canvas warp speed if needed, though it might reset automatically
+            // if (window.warpSpeed !== undefined) {
+            //     window.warpSpeed = 0.2; // Reset to initial baseWarpSpeed from canvas.js
+            // }
+            // Optional: If canvas animation needs reset
+            // if (typeof init === 'function') {
+            //    // Consider if re-running init() is safe and desired here
+            // }
+        }
+    });
+    // --- End pageshow listener ---
+
     async function animatePageExit(targetUrl, projectImage, projectHeader) {
         // Animate warp speed concurrently over the extended duration
         animateWarpSpeed(window.warpSpeed, 5, FULL_ANIMATION_DURATION);
