@@ -237,6 +237,69 @@ h1 {
   animation-delay: 0.4s;
 }
 
+/* Form Styles */
+.embeddable-buttondown-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--us-spacing-8-s);
+  margin-top: var(--us-spacing-12); /* Add some space above the form */
+}
+
+.embeddable-buttondown-form label {
+  font-family: var(--us-font-family-default);
+  font-size: var(--us-font-size-label);
+  line-height: var(--us-line-height-label);
+  font-weight: var(--us-font-weight-regular);
+  color: var(--us-fg-subtext);
+}
+
+.form-input-group {
+  display: flex;
+  gap: var(--us-spacing-8-s);
+}
+
+.embeddable-buttondown-form input[type="email"] {
+  font-family: "Instrument Serif", serif;
+  font-size: var(--us-font-size-heading-3);
+  line-height: var(--us-line-height-heading-3);
+  font-weight: var(--us-font-weight-regular);
+
+  color: var(--us-fg-default);
+  background-color: var(--us-bg-lowest);
+  border: 1px solid var(--us-border-soft);
+  padding: var(--us-spacing-12) var(--us-spacing-16-m);
+  border-radius: var(--us-radii-micro-small);
+  flex-grow: 1; /* Allow email input to take available space */
+}
+
+.embeddable-buttondown-form input[type="email"]::placeholder {
+  color: var(--us-fg-subtext);
+  opacity: 0.7;
+}
+
+.embeddable-buttondown-form input[type="email"]:focus {
+  outline: none;
+  border-color: var(--us-accent-high);
+}
+
+.embeddable-buttondown-form input[type="submit"] {
+  font-family: "Instrument Serif", serif;
+  font-size: var(--us-font-size-heading-3);
+  line-height: var(--us-line-height-heading-3);
+  font-weight: var(--us-font-weight-regular);
+
+  color: var(--us-fg-default);
+  background-color: var(--us-bg-high);
+  border: none;
+  padding: var(--us-spacing-12) var(--us-spacing-24-l);
+  border-radius: var(--us-radii-micro-small);
+  cursor: pointer;
+}
+
+.embeddable-buttondown-form input[type="submit"]:hover {
+  background-color: var(--us-bg-low); /* Darken on hover - or choose another token */
+}
+
 @media (max-width: 768px) {
   .info-section {
     flex-direction: column;

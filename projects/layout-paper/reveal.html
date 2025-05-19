@@ -82,20 +82,6 @@
         var isPlaying = false;
         var replayStartTime = 0;
 
-        // Replay Cursor (Paper.js object)
-        var replayCursorLayer = new Layer(); // Create a dedicated layer for the cursor
-        var replayCursor = new Path.Circle({
-            center: view.center,
-            radius: 10,
-            strokeColor: 'rgba(0, 0, 0, 0.7)',
-            strokeWidth: 2,
-            fillColor: 'rgba(255, 255, 255, 0.3)',
-            visible: false // Initially hidden
-        });
-        replayCursorLayer.addChild(replayCursor); // Add cursor to its layer
-        project.addLayer(replayCursorLayer); // Add the layer to the project
-        replayCursorLayer.bringToFront(); // Ensure cursor layer is on top
-
         // --- Helper Functions ---
         function getRandomPosition() {
             var center = view.center;
@@ -184,7 +170,6 @@
 
             var currentPointForInteraction = mousePos;
             if (isPlaying) {
-                replayCursor.visible = true; // Make Paper.js cursor visible
                 var nowPlay = Date.now(); var elapsedReplayTime = nowPlay - replayStartTime;
                 var totalRecordTime = recordedPath.length > 0 ? recordedPath[recordedPath.length - 1].time : 0;
                 if (elapsedReplayTime <= totalRecordTime && recordedPath.length > 1) {
@@ -198,19 +183,12 @@
                         var vector = p2.point.subtract(p1.point); var offset = vector.multiply(t);
                         var interpolatedPoint = p1.point.add(offset);
                         currentPointForInteraction = interpolatedPoint;
-
-                        // *** Update Paper.js cursor position ***
-                        replayCursor.position = interpolatedPoint;
-                        replayCursorLayer.bringToFront(); // Keep cursor layer on top
-
-                        // Remove call to window.updateCustomCursorPosition
-                        // if (window.updateCustomCursorPosition) { ... }
                     } else {
-                        console.warn("Invalid points in replay."); isPlaying = false; replayCursor.visible = false; // Hide cursor on error
+                        console.warn("Invalid points in replay."); isPlaying = false;
                     }
                     if (window.updateStatus) { var timeLeftPlay = (totalRecordTime - elapsedReplayTime) / 1000; window.updateStatus("Replaying... " + timeLeftPlay.toFixed(1) + "s left"); }
                 } else {
-                    isPlaying = false; replayCursor.visible = false; // Hide cursor when done
+                    isPlaying = false;
                     console.log("Replay finished.");
                     if (window.updateStatus) window.updateStatus("Replay complete.");
                     if (window.setReplayingState) window.setReplayingState(false);
@@ -218,7 +196,6 @@
                     currentPointForInteraction = (mousePos && typeof mousePos.clone === 'function') ? mousePos : view.center;
                 }
             } else {
-                replayCursor.visible = false; // Ensure cursor is hidden when not playing
                 currentPointForInteraction = (mousePos && typeof mousePos.clone === 'function') ? mousePos : view.center;
             }
 
@@ -228,8 +205,6 @@
         }
 
         function onResize(event) {
-             // Ensure cursor layer stays on top after resize potentially rebuilds layers
-             replayCursorLayer.bringToFront();
              setTimeout(function() {
                  project.activeLayer = project.layers[0]; // Ensure default layer active
                  rasters.forEach(function(raster) { if (raster.loaded && raster.bounds) { var halfWidth = raster.bounds.width / 2; var halfHeight = raster.bounds.height / 2; var viewLeft = (view.bounds && typeof view.bounds.left === 'number') ? view.bounds.left : 0; var viewRight = (view.bounds && typeof view.bounds.right === 'number') ? view.bounds.right : paper.view.size.width; var viewTop = (view.bounds && typeof view.bounds.top === 'number') ? view.bounds.top : 0; var viewBottom = (view.bounds && typeof view.bounds.bottom === 'number') ? view.bounds.bottom : paper.view.size.height; raster.position.x = Math.max(viewLeft + halfWidth, Math.min(raster.position.x, viewRight - halfWidth)); raster.position.y = Math.max(viewTop + halfHeight, Math.min(raster.position.y, viewBottom - halfHeight)); } }); console.log("Canvas resized."); }, 50);
