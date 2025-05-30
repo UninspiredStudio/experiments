@@ -111,6 +111,32 @@
         </div>
 
         <div class="space-y-4">
+            <h2 class="text-lg font-semibold text-gray-300">Background</h2>
+            <div>
+                <label for="backgroundType" class="block text-sm font-medium text-gray-400 mb-1">Background Type</label>
+                <select id="backgroundType" class="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2 focus:outline-none focus:border-indigo-500">
+                    <option value="default">Default (Theme)</option>
+                    <option value="color">Custom Color</option>
+                    <option value="image">Custom Image</option>
+                </select>
+            </div>
+            <div id="colorBackgroundControls" class="space-y-2" style="display: none;">
+                <label for="backgroundColor" class="block text-sm font-medium text-gray-400 mb-1">Background Color</label>
+                <input type="color" id="backgroundColor" value="#1f2937" class="w-full h-10 bg-gray-700 border border-gray-600 rounded cursor-pointer">
+            </div>
+            <div id="imageBackgroundControls" class="space-y-2" style="display: none;">
+                <label for="backgroundImage" class="file-input-button bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-3 rounded text-sm text-center cursor-pointer block">
+                    Choose Background Image
+                </label>
+                <input type="file" id="backgroundImage" accept="image/*" style="display: none;">
+                <div id="backgroundImagePreview" class="hidden">
+                    <img id="backgroundImageThumbnail" class="w-full h-20 object-cover rounded border border-gray-600">
+                    <button id="removeBackgroundImage" class="w-full mt-1 text-xs text-red-400 hover:text-red-300 py-1">Remove Background Image</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-4">
             <h2 class="text-lg font-semibold text-gray-300">Image Format</h2>
             <div>
                 <label for="imageAspectRatio" class="block text-sm font-medium text-gray-400 mb-1">Aspect Ratio</label>
@@ -189,6 +215,15 @@
         const uniformSizeControls = document.getElementById('uniformSizeControls');
         const uniformSizeValueSpan = document.getElementById('uniformSizeValue');
 
+        const backgroundTypeSelect = document.getElementById('backgroundType');
+        const backgroundColorInput = document.getElementById('backgroundColor');
+        const backgroundImageInput = document.getElementById('backgroundImage');
+        const colorBackgroundControls = document.getElementById('colorBackgroundControls');
+        const imageBackgroundControls = document.getElementById('imageBackgroundControls');
+        const backgroundImagePreview = document.getElementById('backgroundImagePreview');
+        const backgroundImageThumbnail = document.getElementById('backgroundImageThumbnail');
+        const removeBackgroundImageBtn = document.getElementById('removeBackgroundImage');
+
         let images = [];
         let animationSpeed = parseFloat(speedSlider.value);
         let baseScale = parseFloat(scaleSlider.value);
@@ -204,6 +239,11 @@
         let animationFrameId = null;
         let lastOrderChangeTime = 0;
         // Removed orderChangeCooldown as interval logic replaces it
+
+        // Background settings
+        let backgroundType = 'default';
+        let customBackgroundColor = '#1f2937';
+        let customBackgroundImage = null;
 
         const generateId = () => '_' + Math.random().toString(36).substr(2, 9);
         const getRandom = (min, max) => Math.random() * (max - min) + min;
@@ -298,6 +338,59 @@
                 drawWidth,
                 drawHeight
             };
+        }
+
+        // Get the default background color from CSS variable
+        function getDefaultBackgroundColor() {
+            const computedStyle = getComputedStyle(document.body);
+            return computedStyle.getPropertyValue('--us-bg-canvas').trim() || '#1f2937';
+        }
+
+        // Clear canvas with appropriate background
+        function clearCanvasWithBackground() {
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            
+            if (backgroundType === 'default') {
+                // Use default clearing (transparent) - let CSS handle the background
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            } else if (backgroundType === 'color') {
+                // Fill with custom color
+                ctx.fillStyle = customBackgroundColor;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            } else if (backgroundType === 'image' && customBackgroundImage) {
+                // Fill with custom image
+                const pattern = ctx.createPattern(customBackgroundImage, 'repeat');
+                if (pattern) {
+                    ctx.fillStyle = pattern;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                } else {
+                    // Fallback: draw image scaled to cover canvas
+                    const canvasAspect = canvas.width / canvas.height;
+                    const imageAspect = customBackgroundImage.width / customBackgroundImage.height;
+                    
+                    let drawWidth, drawHeight, offsetX = 0, offsetY = 0;
+                    
+                    if (canvasAspect > imageAspect) {
+                        // Canvas is wider - scale to width
+                        drawWidth = canvas.width;
+                        drawHeight = canvas.width / imageAspect;
+                        offsetY = (canvas.height - drawHeight) / 2;
+                    } else {
+                        // Canvas is taller - scale to height
+                        drawHeight = canvas.height;
+                        drawWidth = canvas.height * imageAspect;
+                        offsetX = (canvas.width - drawWidth) / 2;
+                    }
+                    
+                    ctx.drawImage(customBackgroundImage, offsetX, offsetY, drawWidth, drawHeight);
+                }
+            } else {
+                // Fallback to default
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+            
+            ctx.restore();
         }
 
         function updateOrbitParams(imgData, cssWidth, cssHeight) {
@@ -407,7 +500,7 @@
             updateImageList();
             if (images.length === 0) {
                 stopAnimation();
-                ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+                clearCanvasWithBackground();
                 canvasMessage.style.display = 'flex';
             }
         }
@@ -470,6 +563,7 @@
              ctx.clearRect(0, 0, canvas.width, canvas.height);
              ctx.restore();
 
+             clearCanvasWithBackground();
 
             images.forEach(imgData => {
 
@@ -547,9 +641,11 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.restore();
 
-             images.forEach(imgData => {
-                 const staticX = imgData.centerX + imgData.orbitRadiusX * Math.cos(imgData.orbitAngle);
-                 const staticY = imgData.centerY + imgData.orbitRadiusY * Math.sin(imgData.orbitAngle);
+            clearCanvasWithBackground();
+
+            images.forEach(imgData => {
+                const staticX = imgData.centerX + imgData.orbitRadiusX * Math.cos(imgData.orbitAngle);
+                const staticY = imgData.centerY + imgData.orbitRadiusY * Math.sin(imgData.orbitAngle);
 
                 ctx.save();
                 ctx.globalAlpha = imgData.alpha;
@@ -560,7 +656,7 @@
                 const targetAspectRatio = parseAspectRatio(imageAspectRatio);
                 const drawParams = calculateImageDrawParams(imgData.element, targetAspectRatio, layoutMode, imgData.scale, uniformSizeEnabled, uniformSize);
 
-                 try {
+                try {
                     ctx.drawImage(
                         imgData.element,
                         drawParams.sourceX,
@@ -572,9 +668,9 @@
                         drawParams.drawWidth,
                         drawParams.drawHeight
                     );
-                 } catch (e) {
-                     console.error("Error drawing static image:", e, imgData.element.src);
-                 }
+                } catch (e) {
+                    console.error("Error drawing static image:", e, imgData.element.src);
+                }
                 ctx.restore();
             });
         }
@@ -672,6 +768,60 @@
             images.forEach(imgData => {
                 updateOrbitParams(imgData, cssWidth, cssHeight);
             });
+            if (!animationFrameId && images.length > 0) drawStatic();
+        });
+
+        // Background controls event listeners
+        backgroundTypeSelect.addEventListener('change', () => {
+            backgroundType = backgroundTypeSelect.value;
+            
+            // Show/hide appropriate controls
+            colorBackgroundControls.style.display = backgroundType === 'color' ? 'block' : 'none';
+            imageBackgroundControls.style.display = backgroundType === 'image' ? 'block' : 'none';
+            
+            // Update canvas background
+            if (backgroundType === 'default') {
+                canvas.style.backgroundColor = 'var(--us-bg-canvas)';
+            } else if (backgroundType === 'color') {
+                canvas.style.backgroundColor = 'transparent';
+            } else if (backgroundType === 'image') {
+                canvas.style.backgroundColor = 'transparent';
+            }
+            
+            console.log("Background type changed to:", backgroundType);
+            if (!animationFrameId && images.length > 0) drawStatic();
+        });
+
+        backgroundColorInput.addEventListener('input', () => {
+            customBackgroundColor = backgroundColorInput.value;
+            console.log("Background color changed to:", customBackgroundColor);
+            if (!animationFrameId && images.length > 0) drawStatic();
+        });
+
+        backgroundImageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        customBackgroundImage = img;
+                        backgroundImageThumbnail.src = img.src;
+                        backgroundImagePreview.classList.remove('hidden');
+                        console.log("Background image loaded");
+                        if (!animationFrameId && images.length > 0) drawStatic();
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        removeBackgroundImageBtn.addEventListener('click', () => {
+            customBackgroundImage = null;
+            backgroundImagePreview.classList.add('hidden');
+            backgroundImageInput.value = '';
+            console.log("Background image removed");
             if (!animationFrameId && images.length > 0) drawStatic();
         });
 
