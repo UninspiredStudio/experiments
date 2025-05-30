@@ -80,28 +80,68 @@
             <h2 class="text-lg font-semibold text-gray-300">Parameters</h2>
             <div>
                 <label for="speedSlider" class="block text-sm font-medium text-gray-400 mb-1">Animation Speed</label>
-                <input type="range" id="speedSlider" min="0.1" max="3" step="0.1" value="0.8" class="w-full">
+                <input type="range" id="speedSlider" min="0.1" max="6" step="0.1" value="0.8" class="w-full">
                 <span id="speedValue" class="text-xs text-gray-500 block text-right">0.8</span>
             </div>
             <div>
                 <label for="scaleSlider" class="block text-sm font-medium text-gray-400 mb-1">Image Scale</label>
-                <input type="range" id="scaleSlider" min="0.2" max="1.2" step="0.05" value="0.7" class="w-full">
+                <input type="range" id="scaleSlider" min="0.2" max="10" step="0.05" value="0.7" class="w-full">
                 <span id="scaleValue" class="text-xs text-gray-500 block text-right">0.70</span>
             </div>
              <div>
                 <label for="rotationSlider" class="block text-sm font-medium text-gray-400 mb-1">Max Image Rotation (deg)</label>
-                <input type="range" id="rotationSlider" min="0" max="45" step="1" value="10" class="w-full">
+                <input type="range" id="rotationSlider" min="0" max="90" step="1" value="10" class="w-full">
                 <span id="rotationValue" class="text-xs text-gray-500 block text-right">10</span>
             </div>
              <div>
                 <label for="aspectRatioSlider" class="block text-sm font-medium text-gray-400 mb-1">Ellipse Aspect Ratio (W/H)</label>
-                <input type="range" id="aspectRatioSlider" min="0.2" max="5" step="0.1" value="1.0" class="w-full">
+                <input type="range" id="aspectRatioSlider" min="0.2" max="10" step="0.1" value="1.0" class="w-full">
                 <span id="aspectRatioValue" class="text-xs text-gray-500 block text-right">1.0</span>
             </div>
              <div>
-                <label for="orderChangeSlider" class="block text-sm font-medium text-gray-400 mb-1">Order Change Freq. (10=Fast)</label> {/* Updated Label */}
-                <input type="range" id="orderChangeSlider" min="0" max="10" step="0.1" value="1.5" class="w-full">
+                <label for="orderChangeSlider" class="block text-sm font-medium text-gray-400 mb-1">Order Change Freq. (10=Fast)</label>
+                <input type="range" id="orderChangeSlider" min="0" max="20" step="0.1" value="1.5" class="w-full">
                 <span id="orderChangeValue" class="text-xs text-gray-500 block text-right">1.5</span>
+            </div>
+            <div>
+                <label for="horizontalFloatSlider" class="block text-sm font-medium text-gray-400 mb-1">Horizontal Float Range</label>
+                <input type="range" id="horizontalFloatSlider" min="0.1" max="2.0" step="0.05" value="0.6" class="w-full">
+                <span id="horizontalFloatValue" class="text-xs text-gray-500 block text-right">0.60</span>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <h2 class="text-lg font-semibold text-gray-300">Image Format</h2>
+            <div>
+                <label for="imageAspectRatio" class="block text-sm font-medium text-gray-400 mb-1">Aspect Ratio</label>
+                <select id="imageAspectRatio" class="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2 focus:outline-none focus:border-indigo-500">
+                    <option value="original">Original (Keep as is)</option>
+                    <option value="1:1">Square (1:1)</option>
+                    <option value="4:3">Standard (4:3)</option>
+                    <option value="3:4">Portrait (3:4)</option>
+                    <option value="16:9">Widescreen (16:9)</option>
+                    <option value="9:16">Tall (9:16)</option>
+                    <option value="3:2">Photo (3:2)</option>
+                    <option value="2:3">Portrait Photo (2:3)</option>
+                </select>
+            </div>
+            <div>
+                <label for="layoutMode" class="block text-sm font-medium text-gray-400 mb-1">Layout Mode</label>
+                <select id="layoutMode" class="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2 focus:outline-none focus:border-indigo-500">
+                    <option value="contain">Contain (Fit all content)</option>
+                    <option value="fill">Fill (Crop to fit)</option>
+                </select>
+            </div>
+            <div>
+                <label class="flex items-center space-x-2 text-sm font-medium text-gray-400 mb-2">
+                    <input type="checkbox" id="uniformSize" class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500 focus:ring-2">
+                    <span>Make all images the same size</span>
+                </label>
+                <div id="uniformSizeControls" class="ml-6 space-y-2" style="display: none;">
+                    <label for="uniformSizeSlider" class="block text-xs font-medium text-gray-500 mb-1">Uniform Size (pixels)</label>
+                    <input type="range" id="uniformSizeSlider" min="50" max="800" step="10" value="150" class="w-full">
+                    <span id="uniformSizeValue" class="text-xs text-gray-500 block text-right">150px</span>
+                </div>
             </div>
         </div>
 
@@ -134,19 +174,32 @@
         const rotationSlider = document.getElementById('rotationSlider');
         const aspectRatioSlider = document.getElementById('aspectRatioSlider');
         const orderChangeSlider = document.getElementById('orderChangeSlider');
+        const horizontalFloatSlider = document.getElementById('horizontalFloatSlider');
         const speedValueSpan = document.getElementById('speedValue');
         const scaleValueSpan = document.getElementById('scaleValue');
         const rotationValueSpan = document.getElementById('rotationValue');
         const aspectRatioValueSpan = document.getElementById('aspectRatioValue');
         const orderChangeValueSpan = document.getElementById('orderChangeValue');
+        const horizontalFloatValueSpan = document.getElementById('horizontalFloatValue');
+
+        const imageAspectRatioSelect = document.getElementById('imageAspectRatio');
+        const layoutModeSelect = document.getElementById('layoutMode');
+        const uniformSizeCheckbox = document.getElementById('uniformSize');
+        const uniformSizeSlider = document.getElementById('uniformSizeSlider');
+        const uniformSizeControls = document.getElementById('uniformSizeControls');
+        const uniformSizeValueSpan = document.getElementById('uniformSizeValue');
 
         let images = [];
         let animationSpeed = parseFloat(speedSlider.value);
         let baseScale = parseFloat(scaleSlider.value);
         let maxImageRotation = parseFloat(rotationSlider.value) * (Math.PI / 180);
         let ellipseAspectRatio = parseFloat(aspectRatioSlider.value);
-        // Removed orderChangeProbability, added orderChangeInterval
         let orderChangeInterval = calculateOrderChangeInterval(parseFloat(orderChangeSlider.value));
+        let horizontalFloatRange = parseFloat(horizontalFloatSlider.value);
+        let imageAspectRatio = imageAspectRatioSelect.value;
+        let layoutMode = layoutModeSelect.value;
+        let uniformSizeEnabled = uniformSizeCheckbox.checked;
+        let uniformSize = parseFloat(uniformSizeSlider.value);
         let dragCounter = 0;
         let animationFrameId = null;
         let lastOrderChangeTime = 0;
@@ -171,11 +224,93 @@
             return interval;
         }
 
+        // Parse aspect ratio string to numeric ratio
+        function parseAspectRatio(aspectRatioStr) {
+            if (aspectRatioStr === 'original') return null;
+            const [w, h] = aspectRatioStr.split(':').map(Number);
+            return w / h;
+        }
+
+        // Calculate dimensions and positioning for image drawing
+        function calculateImageDrawParams(img, targetAspectRatio, layoutMode, scale, uniformSizeEnabled, uniformSize) {
+            const imgWidth = img.width;
+            const imgHeight = img.height;
+            const imgAspectRatio = imgWidth / imgHeight;
+
+            let drawWidth = imgWidth;
+            let drawHeight = imgHeight;
+            let sourceX = 0;
+            let sourceY = 0;
+            let sourceWidth = imgWidth;
+            let sourceHeight = imgHeight;
+
+            if (targetAspectRatio && targetAspectRatio !== imgAspectRatio) {
+                if (layoutMode === 'fill') {
+                    // Fill: crop the image to fit the target aspect ratio
+                    if (imgAspectRatio > targetAspectRatio) {
+                        // Image is wider than target, crop width
+                        sourceWidth = imgHeight * targetAspectRatio;
+                        sourceX = (imgWidth - sourceWidth) / 2;
+                        drawWidth = sourceWidth;
+                        drawHeight = imgHeight;
+                    } else {
+                        // Image is taller than target, crop height
+                        sourceHeight = imgWidth / targetAspectRatio;
+                        sourceY = (imgHeight - sourceHeight) / 2;
+                        drawWidth = imgWidth;
+                        drawHeight = sourceHeight;
+                    }
+                } else {
+                    // Contain: letterbox/pillarbox to fit target aspect ratio
+                    if (imgAspectRatio > targetAspectRatio) {
+                        // Image is wider, add padding top/bottom
+                        drawHeight = drawWidth / targetAspectRatio;
+                    } else {
+                        // Image is taller, add padding left/right  
+                        drawWidth = drawHeight * targetAspectRatio;
+                    }
+                }
+            }
+
+            // Apply uniform sizing if enabled
+            if (uniformSizeEnabled) {
+                const currentAspectRatio = targetAspectRatio || imgAspectRatio;
+                if (currentAspectRatio >= 1) {
+                    // Landscape or square: uniform size is the width
+                    drawWidth = uniformSize * scale;
+                    drawHeight = uniformSize / currentAspectRatio * scale;
+                } else {
+                    // Portrait: uniform size is the height
+                    drawHeight = uniformSize * scale;
+                    drawWidth = uniformSize * currentAspectRatio * scale;
+                }
+            } else {
+                // Apply normal scaling
+                drawWidth = drawWidth * scale;
+                drawHeight = drawHeight * scale;
+            }
+
+            return {
+                sourceX,
+                sourceY,
+                sourceWidth,
+                sourceHeight,
+                drawWidth,
+                drawHeight
+            };
+        }
+
         function updateOrbitParams(imgData, cssWidth, cssHeight) {
-             imgData.centerX = cssWidth / 2 + getRandom(-cssWidth * 0.05, cssWidth * 0.05);
+             // Constrain horizontal center variation based on horizontalFloatRange
+             const maxHorizontalVariation = cssWidth * 0.3 * horizontalFloatRange;
+             imgData.centerX = cssWidth / 2 + getRandom(-maxHorizontalVariation, maxHorizontalVariation);
              imgData.centerY = cssHeight / 2 + getRandom(-cssHeight * 0.05, cssHeight * 0.05);
+             
              if (imgData.orbitRadiusX === undefined) {
-                 imgData.orbitRadiusX = getRandom(Math.min(cssWidth, cssHeight) * 0.1, Math.min(cssWidth, cssHeight) * 0.4);
+                 // Also constrain orbital radius based on horizontalFloatRange
+                 const maxRadius = Math.min(cssWidth, cssHeight) * 0.4 * horizontalFloatRange;
+                 const minRadius = Math.min(cssWidth, cssHeight) * 0.1;
+                 imgData.orbitRadiusX = getRandom(minRadius, maxRadius);
              }
              imgData.orbitRadiusY = imgData.orbitRadiusX / ellipseAspectRatio;
         }
@@ -310,6 +445,8 @@
             rotationValueSpan.textContent = parseInt(rotationSlider.value);
             aspectRatioValueSpan.textContent = parseFloat(aspectRatioSlider.value).toFixed(1);
             orderChangeValueSpan.textContent = parseFloat(orderChangeSlider.value).toFixed(1);
+            uniformSizeValueSpan.textContent = parseInt(uniformSizeSlider.value) + 'px';
+            horizontalFloatValueSpan.textContent = parseFloat(horizontalFloatSlider.value).toFixed(2);
         }
 
         function draw() {
@@ -358,10 +495,22 @@
 
                 ctx.translate(imgData.x, imgData.y);
                 ctx.rotate(imgData.angle);
-                ctx.scale(imgData.scale, imgData.scale);
+
+                const targetAspectRatio = parseAspectRatio(imageAspectRatio);
+                const drawParams = calculateImageDrawParams(imgData.element, targetAspectRatio, layoutMode, imgData.scale, uniformSizeEnabled, uniformSize);
 
                 try {
-                    ctx.drawImage(imgData.element, -imgData.element.width / 2, -imgData.element.height / 2);
+                    ctx.drawImage(
+                        imgData.element,
+                        drawParams.sourceX,
+                        drawParams.sourceY,
+                        drawParams.sourceWidth,
+                        drawParams.sourceHeight,
+                        -drawParams.drawWidth / 2,
+                        -drawParams.drawHeight / 2,
+                        drawParams.drawWidth,
+                        drawParams.drawHeight
+                    );
                 } catch (e) {
                     console.error("Error drawing image:", e, imgData.element.src);
                 }
@@ -407,9 +556,22 @@
 
                 ctx.translate(staticX, staticY);
                 ctx.rotate(imgData.angle);
-                ctx.scale(imgData.scale, imgData.scale);
+
+                const targetAspectRatio = parseAspectRatio(imageAspectRatio);
+                const drawParams = calculateImageDrawParams(imgData.element, targetAspectRatio, layoutMode, imgData.scale, uniformSizeEnabled, uniformSize);
+
                  try {
-                    ctx.drawImage(imgData.element, -imgData.element.width / 2, -imgData.element.height / 2);
+                    ctx.drawImage(
+                        imgData.element,
+                        drawParams.sourceX,
+                        drawParams.sourceY,
+                        drawParams.sourceWidth,
+                        drawParams.sourceHeight,
+                        -drawParams.drawWidth / 2,
+                        -drawParams.drawHeight / 2,
+                        drawParams.drawWidth,
+                        drawParams.drawHeight
+                    );
                  } catch (e) {
                      console.error("Error drawing static image:", e, imgData.element.src);
                  }
@@ -476,6 +638,42 @@
             console.log("Order change interval:", isFinite(orderChangeInterval) ? orderChangeInterval.toFixed(0) + "ms" : "Infinity");
         });
 
+        imageAspectRatioSelect.addEventListener('change', () => {
+            imageAspectRatio = imageAspectRatioSelect.value;
+            console.log("Aspect ratio changed to:", imageAspectRatio);
+            if (!animationFrameId && images.length > 0) drawStatic();
+        });
+
+        layoutModeSelect.addEventListener('change', () => {
+            layoutMode = layoutModeSelect.value;
+            console.log("Layout mode changed to:", layoutMode);
+            if (!animationFrameId && images.length > 0) drawStatic();
+        });
+
+        uniformSizeCheckbox.addEventListener('change', () => {
+            uniformSizeEnabled = uniformSizeCheckbox.checked;
+            uniformSizeControls.style.display = uniformSizeEnabled ? 'block' : 'none';
+            console.log("Uniform size enabled:", uniformSizeEnabled);
+            if (!animationFrameId && images.length > 0) drawStatic();
+        });
+
+        uniformSizeSlider.addEventListener('input', () => {
+            uniformSize = parseFloat(uniformSizeSlider.value);
+            updateSliderValues();
+            if (!animationFrameId && images.length > 0) drawStatic();
+        });
+
+        horizontalFloatSlider.addEventListener('input', () => {
+            horizontalFloatRange = parseFloat(horizontalFloatSlider.value);
+            updateSliderValues();
+            // Update existing images with new horizontal float constraints
+            const cssWidth = canvas.clientWidth;
+            const cssHeight = canvas.clientHeight;
+            images.forEach(imgData => {
+                updateOrbitParams(imgData, cssWidth, cssHeight);
+            });
+            if (!animationFrameId && images.length > 0) drawStatic();
+        });
 
         window.addEventListener('resize', () => {
             clearTimeout(window.resizeTimeout);
