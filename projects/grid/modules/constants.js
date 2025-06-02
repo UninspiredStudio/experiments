@@ -8,7 +8,7 @@ export const END_THRESHOLD_PERCENT = 0.01;
 export const ACCELERATION_FACTOR = 2;
 export const START_ACCELERATION_FACTOR = 1;
 export const RECORDING_FRAMERATE = 30;
-export const RECORDING_MIME_TYPE = 'video/webm;codecs=vp9';
+export const RECORDING_MIME_TYPE = 'video/mp4';
 export const RECORDING_VIDEO_BITRATE = 9000000; // 9 Mbps
 export const DEFAULT_LETTER_COLOR = '#FFFFFF';
 export const DEFAULT_LETTER_BG_COLOR = '#000000';

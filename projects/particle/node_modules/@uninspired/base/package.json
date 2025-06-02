@@ -1,0 +1,19 @@
+{
+  "name": "@uninspired/base",
+  "version": "1.0.0",
+  "description": "base tokens and some components",
+  "main": "tokens.css",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UninspiredStudio/base.git"
+  },
+  "author": "uninspired",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/UninspiredStudio/base/issues"
+  },
+  "homepage": "https://github.com/UninspiredStudio/base#readme"
+}
