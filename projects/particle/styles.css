@@ -11,7 +11,7 @@ body {
 /* Drag-over feedback for the body */
 body.dragging-over {
     background-color: var(--us-bg-lowest); /* Use token background */
-    box-shadow: inset 0 0 0 3px var(--us-accent-high); /* Use token accent color */
+
 }
 
 /* Canvas styles */
@@ -171,6 +171,7 @@ input:disabled + label {
 .mb-4 { margin-bottom: var(--us-spacing-16-m); }
 .mr-4 { margin-right: var(--us-spacing-16-m); }
 .ml-2 { margin-left: var(--us-spacing-8-s); }
+.ml-4 { margin-left: var(--us-spacing-16-m); }
 
 /* Spacing for flex/grid children */
 .space-x-2 > * + * { margin-left: var(--us-spacing-8-s); }
@@ -229,13 +230,17 @@ input:disabled + label {
 .sidebar {
     width: 25%; /* Example fixed width */
     max-width: 320px; /* Example max-width */
-    height: 100%;
+    height: calc(100vh - 40px); /* Account for top/bottom margin */
     background-color: var(--us-bg-lowest); 
-    padding: var(--us-spacing-16-m);
+    padding: var(--us-spacing-24-l); /* Increased content padding */
     display: flex;
     flex-direction: column;
-    border-right: 1px solid var(--us-border-medium);
+    border: 1px solid var(--us-border-soft); /* Use border soft token */
+    border-radius: var(--us-radii-micro-medium); /* 8px radius */
     overflow-y: auto;
+    /* Floating appearance without absolute positioning */
+    margin: var(--us-spacing-20); /* 20px margin all around */
+
 }
 
 .sidebar-section {
@@ -307,7 +312,7 @@ label, .label {
 .input-number:focus {
     border-color: var(--us-accent-high); /* Use token accent color */
     outline: none;
-    box-shadow: 0 0 0 1px var(--us-accent-high); /* Use token accent color */
+    
 }
 
 /* Text input styles */
@@ -326,7 +331,7 @@ label, .label {
 .input-text:focus {
     border-color: var(--us-accent-high); /* Use token accent color */
     outline: none;
-    box-shadow: 0 0 0 1px var(--us-accent-high); /* Use token accent color */
+
 }
 
 /* Small text input variant */
@@ -354,7 +359,7 @@ label, .label {
 .input-select:focus {
     border-color: var(--us-accent-high); /* Use token accent color */
     outline: none;
-    box-shadow: 0 0 0 1px var(--us-accent-high); /* Use token accent color */
+
 }
 
 .input-checkbox {
@@ -441,10 +446,12 @@ label, .label {
 }
 
 .main-content {
-    width: 75%; /* Example */
-    height: 100%;
+    width: 75%; /* Take remaining width with sidebar */
+    height: calc(100vh - 40px); /* Account for top/bottom margin */
     flex-grow: 1;
     position: relative;
+    /* Add margin to match sidebar spacing */
+    margin: var(--us-spacing-20) var(--us-spacing-20) var(--us-spacing-20) 0; /* Top, right, bottom margins */
 }
 
 .text-muted { /* Replacement for text-gray-500 */
@@ -452,4 +459,9 @@ label, .label {
 } 
 .text-gray-500 { /* Specific gray color for backward compatibility */
     color: var(--us-fg-subtext);
+} 
+
+/* Add bottom padding to Export Current Frame section */
+.sidebar-section:last-child {
+    padding-bottom: var(--us-spacing-16-m); /* Add small padding at bottom */
 } 

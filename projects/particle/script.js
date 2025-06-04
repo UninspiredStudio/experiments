@@ -203,11 +203,11 @@ function updateImageListUI() {
     state.uploadedImages.forEach((imgData, index) => {
         const item = document.createElement('div'); item.classList.add('image-item', 'p-2', 'rounded-md', 'flex', 'items-center', 'justify-between', 'mb-1');
         if (index === state.currentImageIndex) { item.classList.add('active'); }
-        const infoDiv = document.createElement('div'); infoDiv.classList.add('flex', 'items-center', 'overflow-hidden', 'mr-2');
-        const thumb = document.createElement('img'); thumb.src = imgData.img.src; thumb.alt = imgData.name; thumb.classList.add('mr-2', 'flex-shrink-0');
+        const infoDiv = document.createElement('div'); infoDiv.classList.add('flex', 'items-center', 'overflow-hidden', 'flex-grow');
+        const thumb = document.createElement('img'); thumb.src = imgData.img.src; thumb.alt = imgData.name; thumb.classList.add('mr-4', 'flex-shrink-0');
         const nameSpan = document.createElement('span'); nameSpan.textContent = imgData.name.length > 15 ? imgData.name.substring(0, 12) + '...' : imgData.name; nameSpan.classList.add('text-sm', 'text-gray-200', 'truncate'); nameSpan.title = imgData.name;
         infoDiv.appendChild(thumb); infoDiv.appendChild(nameSpan); item.addEventListener('click', () => handleSwitchImage(index));
-        const removeBtn = document.createElement('button'); removeBtn.textContent = 'X'; removeBtn.classList.add('remove-btn', 'flex-shrink-0'); removeBtn.title = `Remove ${imgData.name}`;
+        const removeBtn = document.createElement('button'); removeBtn.textContent = 'X'; removeBtn.classList.add('remove-btn', 'flex-shrink-0', 'ml-4'); removeBtn.title = `Remove ${imgData.name}`;
         removeBtn.addEventListener('click', (e) => { e.stopPropagation(); handleRemoveImage(index); });
         item.appendChild(infoDiv); item.appendChild(removeBtn); imageListDiv.appendChild(item);
     });
