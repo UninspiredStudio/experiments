@@ -10,7 +10,6 @@ const COUNTDOWN_START_VALUE = 3;
 const REPLAY_PATH_COLOR = 'rgba(0, 150, 255, 0.8)';
 const REPLAY_PATH_WIDTH = 2;
 const REPLAY_TARGET_FPS = 60;
-const SVG_BACKGROUND_COLOR = '#000000';
 const FRAME_FILENAME_PADDING = 5;
 
 // --- DOM Elements ---
@@ -873,25 +872,185 @@ function downloadRecordedVideo() {
 
 // --- SVG Generation ---
 function generateSVGString() {
-    const { canvas } = domElements; const { particles } = state; const width = canvas.width; const height = canvas.height;
+    const { canvas } = domElements; 
+    const { particles } = state; 
+    const width = canvas.width; 
+    const height = canvas.height;
+    
     if(width === 0 || height === 0) {
         console.warn("Attempted to generate SVG with zero width/height canvas.")
         return '<svg width="0" height="0" xmlns="http://www.w3.org/2000/svg"></svg>'; // Return empty SVG
     }
+    
+    // Create SVG with transparent background (no background rect)
     let svgString = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">`;
-    svgString += `<rect width="100%" height="100%" fill="${SVG_BACKGROUND_COLOR}"/>`;
-    particles.forEach(p => { if (p.currentAlpha > 0) { const size = state.particleSize * p.currentAlpha; if (size <= 0) return;
-            const color = `rgb(${Math.round(p.color.r)}, ${Math.round(p.color.g)}, ${Math.round(p.color.b)})`; const opacity = p.currentAlpha.toFixed(2);
-            const cx = p.x.toFixed(2); const cy = p.y.toFixed(2);
-            if (state.particleShape === 'circle') { const radius = (size / 2).toFixed(2); svgString += `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="${color}" fill-opacity="${opacity}" />`; }
-            else if (state.particleShape === 'square') { const halfSize = (size / 2); const xPos = (p.x - halfSize).toFixed(2); const yPos = (p.y - halfSize).toFixed(2); const side = size.toFixed(2); svgString += `<rect x="${xPos}" y="${yPos}" width="${side}" height="${side}" fill="${color}" fill-opacity="${opacity}" />`; }
+    
+    particles.forEach(p => { 
+        if (p.currentAlpha > 0) { 
+            const size = state.particleSize * p.currentAlpha; 
+            if (size <= 0) return;
+            
+            const color = `rgb(${Math.round(p.color.r)}, ${Math.round(p.color.g)}, ${Math.round(p.color.b)})`; 
+            const opacity = p.currentAlpha.toFixed(2);
+            const cx = p.x.toFixed(2); 
+            const cy = p.y.toFixed(2);
+            
+            if (state.particleShape === 'circle') { 
+                const radius = (size / 2).toFixed(2); 
+                svgString += `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="${color}" fill-opacity="${opacity}" />`; 
+            }
+            else if (state.particleShape === 'square') { 
+                const halfSize = (size / 2); 
+                const xPos = (p.x - halfSize).toFixed(2); 
+                const yPos = (p.y - halfSize).toFixed(2); 
+                const side = size.toFixed(2); 
+                svgString += `<rect x="${xPos}" y="${yPos}" width="${side}" height="${side}" fill="${color}" fill-opacity="${opacity}" />`; 
+            }
             else if (state.particleShape === 'character') { 
-                const fontSize = (size * 16).toFixed(2); 
+                const fontSize = (size * 16); 
                 const charToRender = p.assignedCharacter || '★';
-                svgString += `<text x="${cx}" y="${cy}" font-family="${state.particleFont}" font-size="${fontSize}" text-anchor="middle" dominant-baseline="central" fill="${color}" fill-opacity="${opacity}">${charToRender}</text>`; 
-            } } });
-    svgString += `</svg>`; return svgString;
+                
+                // Convert character to path instead of using text element
+                const pathElement = getCharacterPath(charToRender, p.x, p.y, fontSize, state.particleFont);
+                // Add fill and opacity to the path
+                if (pathElement.includes('<path')) {
+                    svgString += pathElement.replace('<path d=', `<path fill="${color}" fill-opacity="${opacity}" d=`);
+                } else if (pathElement.includes('<circle')) {
+                    svgString += pathElement.replace('<circle', `<circle fill="${color}" fill-opacity="${opacity}"`);
+                } else if (pathElement.includes('<rect')) {
+                    svgString += pathElement.replace('<rect', `<rect fill="${color}" fill-opacity="${opacity}"`);
+                }
+            } 
+        } 
+    });
+    
+    svgString += `</svg>`; 
+    return svgString;
 }
+
+// --- Helper function to convert character to SVG path ---
+function getCharacterPath(character, x, y, fontSize, fontFamily) {
+    // Create a temporary canvas to measure the character and convert it to path data
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    // Use a larger canvas for better precision, but base it on actual font size
+    const canvasSize = Math.max(200, fontSize * 3);
+    tempCanvas.width = canvasSize;
+    tempCanvas.height = canvasSize;
+    
+    // Set font exactly as it appears in the browser
+    tempCtx.font = `${fontSize}px ${fontFamily}`;
+    tempCtx.textAlign = 'center';
+    tempCtx.textBaseline = 'middle';
+    tempCtx.fillStyle = 'black';
+    
+    // Measure the text to get accurate dimensions
+    const metrics = tempCtx.measureText(character);
+    const textWidth = metrics.width;
+    const textHeight = fontSize; // Approximate text height based on font size
+    
+    // Draw the character in the center of the canvas
+    const centerX = canvasSize / 2;
+    const centerY = canvasSize / 2;
+    tempCtx.fillText(character, centerX, centerY);
+    
+    // Get image data and convert to path
+    const imageData = tempCtx.getImageData(0, 0, canvasSize, canvasSize);
+    const data = imageData.data;
+    
+    // Find the actual bounding box of the rendered character
+    let minX = canvasSize, maxX = 0, minY = canvasSize, maxY = 0;
+    let hasPixels = false;
+    const threshold = 100;
+    
+    for (let py = 0; py < canvasSize; py++) {
+        for (let px = 0; px < canvasSize; px++) {
+            const alpha = data[(py * canvasSize + px) * 4 + 3];
+            if (alpha > threshold) {
+                hasPixels = true;
+                minX = Math.min(minX, px);
+                maxX = Math.max(maxX, px);
+                minY = Math.min(minY, py);
+                maxY = Math.max(maxY, py);
+            }
+        }
+    }
+    
+    if (!hasPixels) {
+        // Fallback to a simple shape if character couldn't be processed
+        const size = fontSize * 0.4;
+        return `<rect x="${x - size/2}" y="${y - size/2}" width="${size}" height="${size}" />`;
+    }
+    
+    // Calculate actual rendered dimensions
+    const renderedWidth = maxX - minX + 1;
+    const renderedHeight = maxY - minY + 1;
+    
+    // Calculate scaling to match the target font size
+    // Use the larger dimension to ensure the character fits properly
+    const targetSize = Math.max(textWidth, textHeight);
+    const actualSize = Math.max(renderedWidth, renderedHeight);
+    const scale = targetSize / actualSize;
+    
+    // Calculate the offset to center the character at the target position
+    const renderedCenterX = (minX + maxX) / 2;
+    const renderedCenterY = (minY + maxY) / 2;
+    const offsetX = x - (renderedCenterX - centerX) * scale;
+    const offsetY = y - (renderedCenterY - centerY) * scale;
+    
+    // Create optimized paths with better resolution
+    const paths = [];
+    const visited = new Set();
+    // Use smaller step size for better quality, but limit it for performance
+    const step = Math.max(1, Math.min(3, Math.floor(fontSize / 15)));
+    
+    for (let py = minY; py <= maxY; py += step) {
+        for (let px = minX; px <= maxX; px += step) {
+            const key = `${px},${py}`;
+            if (visited.has(key)) continue;
+            
+            const alpha = data[(py * canvasSize + px) * 4 + 3];
+            if (alpha > threshold) {
+                visited.add(key);
+                
+                // Try to create larger rectangles by extending horizontally
+                let width = step;
+                let extendX = px + step;
+                
+                // Extend horizontally while pixels are available
+                while (extendX <= maxX && !visited.has(`${extendX},${py}`)) {
+                    const extendAlpha = data[(py * canvasSize + extendX) * 4 + 3];
+                    if (extendAlpha > threshold) {
+                        visited.add(`${extendX},${py}`);
+                        width += step;
+                        extendX += step;
+                    } else {
+                        break;
+                    }
+                }
+                
+                // Transform coordinates to target position with proper scaling
+                const rectX = offsetX + (px - centerX) * scale;
+                const rectY = offsetY + (py - centerY) * scale;
+                const rectWidth = width * scale;
+                const rectHeight = step * scale;
+                
+                // Create path segment
+                paths.push(`M ${rectX.toFixed(2)} ${rectY.toFixed(2)} L ${(rectX + rectWidth).toFixed(2)} ${rectY.toFixed(2)} L ${(rectX + rectWidth).toFixed(2)} ${(rectY + rectHeight).toFixed(2)} L ${rectX.toFixed(2)} ${(rectY + rectHeight).toFixed(2)} Z`);
+            }
+        }
+    }
+    
+    if (paths.length === 0) {
+        // Fallback to a simple circle if path creation failed
+        const radius = fontSize * 0.3;
+        return `<circle cx="${x}" cy="${y}" r="${radius}" />`;
+    }
+    
+    return `<path d="${paths.join(' ')}" />`;
+}
+
 function downloadSVG() {
      if (state.isCountingDown || state.isRecording || state.isReplaying || state.isRecordingAnimation || state.isProcessingRecording || state.currentImageIndex === -1) return;
     console.log("Generating single SVG frame for download..."); const { particles } = state; if (particles.length === 0) { console.warn("No particles to generate SVG from."); return; }
@@ -1168,7 +1327,11 @@ function particleDebugHelp() {
     console.log("   adjustThresholds(25, 1)               - Very permissive thresholds");
     console.log("   adjustThresholds(null, 1)             - Only change color threshold");
     console.log("");
-    console.log("3. Check current state:");
+    console.log("3. Test character-to-path conversion:");
+    console.log("   testCharacterPath('★', 48, 'Arial')   - Test character conversion");
+    console.log("   testCharacterPath('A', 24)            - Test with different character");
+    console.log("");
+    console.log("4. Check current state:");
     console.log("   console.log(state.uploadedImages)     - See all uploaded images");
     console.log("   console.log(state.currentImageIndex)  - See current image index");
     console.log("   console.log(state.particleDensity)    - See particle density setting");
@@ -1179,12 +1342,89 @@ function particleDebugHelp() {
     console.log("- Low contrast images: Try adjustThresholds(50, 1)");
     console.log("- Too many particles: Increase density slider or call state.particleDensity = 10");
     console.log("- Too few particles: Decrease density slider or call state.particleDensity = 3");
+    console.log("- Character size issues: Use testCharacterPath() to debug conversion");
     console.log("");
     console.log("Current settings:");
     console.log(`- Alpha threshold: ${state.particleAlphaThreshold}`);
     console.log(`- Color threshold: ${state.particleColorThreshold}`);
     console.log(`- Particle density: ${state.particleDensity}`);
+    console.log(`- Particle size: ${state.particleSize}`);
     console.log(`- Current image: ${state.currentImageIndex === -1 ? 'None' : state.uploadedImages[state.currentImageIndex]?.name}`);
+}
+
+// Debug function for testing character path conversion
+function testCharacterPath(character = '★', fontSize = 48, fontFamily = 'Arial') {
+    console.log(`\n=== Testing Character Path Conversion ===`);
+    console.log(`Character: "${character}"`);
+    console.log(`Font: ${fontSize}px ${fontFamily}`);
+    
+    // Test the conversion
+    const testX = 100;
+    const testY = 100;
+    const pathResult = getCharacterPath(character, testX, testY, fontSize, fontFamily);
+    
+    // Create a temporary canvas to measure the original character
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCanvas.width = 200;
+    tempCanvas.height = 200;
+    
+    tempCtx.font = `${fontSize}px ${fontFamily}`;
+    tempCtx.textAlign = 'center';
+    tempCtx.textBaseline = 'middle';
+    
+    const metrics = tempCtx.measureText(character);
+    
+    console.log(`\nOriginal text metrics:`);
+    console.log(`- Text width: ${metrics.width.toFixed(2)}px`);
+    console.log(`- Font size: ${fontSize}px`);
+    console.log(`- Font family: ${fontFamily}`);
+    
+    // Draw the character and find bounds
+    tempCtx.fillStyle = 'black';
+    tempCtx.fillText(character, 100, 100);
+    
+    const imageData = tempCtx.getImageData(0, 0, 200, 200);
+    const data = imageData.data;
+    
+    let minX = 200, maxX = 0, minY = 200, maxY = 0;
+    let pixelCount = 0;
+    
+    for (let py = 0; py < 200; py++) {
+        for (let px = 0; px < 200; px++) {
+            const alpha = data[(py * 200 + px) * 4 + 3];
+            if (alpha > 100) {
+                pixelCount++;
+                minX = Math.min(minX, px);
+                maxX = Math.max(maxX, px);
+                minY = Math.min(minY, py);
+                maxY = Math.max(maxY, py);
+            }
+        }
+    }
+    
+    const renderedWidth = maxX - minX + 1;
+    const renderedHeight = maxY - minY + 1;
+    
+    console.log(`\nActual rendered bounds:`);
+    console.log(`- Rendered size: ${renderedWidth}x${renderedHeight}px`);
+    console.log(`- Bounding box: (${minX}, ${minY}) to (${maxX}, ${maxY})`);
+    console.log(`- Total pixels: ${pixelCount}`);
+    
+    console.log(`\nGenerated SVG path:`);
+    console.log(pathResult);
+    
+    console.log(`\nTo test this visually:`);
+    console.log(`1. Open test-svg.html`);
+    console.log(`2. Use the character size comparison tool`);
+    console.log(`3. Set character to "${character}", size to ${fontSize}, font to ${fontFamily}`);
+    
+    return {
+        originalMetrics: { width: metrics.width, height: fontSize },
+        renderedBounds: { width: renderedWidth, height: renderedHeight },
+        svgPath: pathResult,
+        pixelCount: pixelCount
+    };
 }
 
 // Expose debug functions globally for console access
@@ -1192,19 +1432,4 @@ window.particleDebugHelp = particleDebugHelp;
 window.testParticleGeneration = testParticleGeneration;
 window.adjustThresholds = adjustThresholds;
 window.testBlackAndWhite = testBlackAndWhite;
-
-function updateImageListUI() {
-    const { imageListDiv } = domElements; imageListDiv.innerHTML = '';
-    if (state.uploadedImages.length === 0) { imageListDiv.innerHTML = '<p class="text-gray-500 text-sm">No images uploaded yet.</p>'; return; }
-    state.uploadedImages.forEach((imgData, index) => {
-        const item = document.createElement('div'); item.classList.add('image-item', 'p-2', 'rounded-md', 'flex', 'items-center', 'justify-between', 'mb-1');
-        if (index === state.currentImageIndex) { item.classList.add('active'); }
-        const infoDiv = document.createElement('div'); infoDiv.classList.add('flex', 'items-center', 'overflow-hidden', 'flex-grow');
-        const thumb = document.createElement('img'); thumb.src = imgData.img.src; thumb.alt = imgData.name; thumb.classList.add('mr-4', 'flex-shrink-0');
-        const nameSpan = document.createElement('span'); nameSpan.textContent = imgData.name.length > 15 ? imgData.name.substring(0, 12) + '...' : imgData.name; nameSpan.classList.add('text-sm', 'text-gray-200', 'truncate'); nameSpan.title = imgData.name;
-        infoDiv.appendChild(thumb); infoDiv.appendChild(nameSpan); item.addEventListener('click', () => handleSwitchImage(index));
-        const removeBtn = document.createElement('button'); removeBtn.textContent = 'X'; removeBtn.classList.add('remove-btn', 'flex-shrink-0', 'ml-4'); removeBtn.title = `Remove ${imgData.name}`;
-        removeBtn.addEventListener('click', (e) => { e.stopPropagation(); handleRemoveImage(index); });
-        item.appendChild(infoDiv); item.appendChild(removeBtn); imageListDiv.appendChild(item);
-    });
-} 
+window.testCharacterPath = testCharacterPath;

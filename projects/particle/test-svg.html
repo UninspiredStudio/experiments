@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVG Export Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4);
+            min-height: 100vh;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .svg-test {
+            border: 1px solid #ccc;
+            margin: 10px 0;
+            padding: 10px;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                rgba(0,0,0,.1) 10px,
+                rgba(0,0,0,.1) 20px
+            );
+        }
+        svg {
+            display: block;
+            max-width: 300px;
+            border: 1px solid red;
+        }
+        .comparison-container {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            margin: 20px 0;
+        }
+        .canvas-test, .svg-test-inline {
+            border: 1px solid #333;
+            background: white;
+        }
+        canvas {
+            display: block;
+        }
+        .test-controls {
+            margin: 20px 0;
+        }
+        .test-controls input, .test-controls select {
+            margin: 5px;
+            padding: 5px;
+        }
+        .size-info {
+            font-family: monospace;
+            background: #f0f0f0;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>SVG Export Test</h1>
+    <p>This page tests the transparent background and vector text conversion for SVG exports.</p>
+    
+    <div class="test-container">
+        <h2>Test 1: Transparent Background</h2>
+        <p>The SVG should have no background color and show the checkered pattern behind it:</p>
+        <div class="svg-test">
+            <svg width="200" height="100" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="50" cy="50" r="20" fill="red" fill-opacity="0.8" />
+                <rect x="100" y="30" width="40" height="40" fill="blue" fill-opacity="0.6" />
+                <circle cx="170" cy="50" r="15" fill="green" fill-opacity="0.9" />
+            </svg>
+        </div>
+    </div>
+    
+    <div class="test-container">
+        <h2>Test 2: Character as Paths</h2>
+        <p>These should be vector paths, not text elements:</p>
+        <div class="svg-test">
+            <svg width="200" height="100" xmlns="http://www.w3.org/2000/svg">
+                <!-- Example of converted character paths -->
+                <path d="M 45 25 L 55 25 L 55 35 L 45 35 Z M 47 27 L 53 27 L 53 33 L 47 33 Z" fill="purple" fill-opacity="0.8" />
+                <path d="M 95 25 L 105 25 L 105 35 L 95 35 Z" fill="orange" fill-opacity="0.7" />
+                <circle cx="150" cy="50" r="12" fill="red" fill-opacity="0.9" />
+            </svg>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>Test 3: Character Size Comparison</h2>
+        <p>Compare canvas-rendered characters with SVG path-converted characters:</p>
+        
+        <div class="test-controls">
+            <label>Character: <input type="text" id="testChar" value="★" maxlength="1"></label>
+            <label>Font Size: <input type="range" id="testSize" min="10" max="100" value="48"></label>
+            <span id="sizeDisplay">48px</span>
+            <label>Font: 
+                <select id="testFont">
+                    <option value="Arial">Arial</option>
+                    <option value="Times New Roman">Times New Roman</option>
+                    <option value="Courier New">Courier New</option>
+                    <option value="Georgia">Georgia</option>
+                    <option value="Impact">Impact</option>
+                </select>
+            </label>
+            <button id="testBtn">Test Conversion</button>
+        </div>
+
+        <div class="comparison-container">
+            <div>
+                <h4>Canvas Rendering</h4>
+                <canvas id="testCanvas" width="150" height="150" class="canvas-test"></canvas>
+                <div class="size-info" id="canvasInfo">Canvas info will appear here</div>
+            </div>
+            <div>
+                <h4>SVG Path Rendering</h4>
+                <svg id="testSvg" width="150" height="150" xmlns="http://www.w3.org/2000/svg" class="svg-test-inline">
+                    <!-- Path will be inserted here -->
+                </svg>
+                <div class="size-info" id="svgInfo">SVG info will appear here</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="test-container">
+        <h2>Instructions</h2>
+        <ol>
+            <li>Use the test above to compare character sizes</li>
+            <li>Go to the main particle system</li>
+            <li>Upload an image</li>
+            <li>Set particle shape to "Character"</li>
+            <li>Enter some characters like "★♦♥♠"</li>
+            <li>Download the SVG</li>
+            <li>Open the SVG file in a text editor to verify:</li>
+            <ul>
+                <li>No <code>&lt;rect width="100%" height="100%" fill="#000000"/&gt;</code> element</li>
+                <li>Character particles use <code>&lt;path&gt;</code> elements instead of <code>&lt;text&gt;</code></li>
+            </ul>
+        </ol>
+    </div>
+    
+    <p><a href="index.html">← Back to Particle System</a></p>
+
+    <script>
+        // Copy the getCharacterPath function from the main script for testing
+        function getCharacterPath(character, x, y, fontSize, fontFamily) {
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            const canvasSize = Math.max(200, fontSize * 3);
+            tempCanvas.width = canvasSize;
+            tempCanvas.height = canvasSize;
+            
+            tempCtx.font = `${fontSize}px ${fontFamily}`;
+            tempCtx.textAlign = 'center';
+            tempCtx.textBaseline = 'middle';
+            tempCtx.fillStyle = 'black';
+            
+            const metrics = tempCtx.measureText(character);
+            const textWidth = metrics.width;
+            const textHeight = fontSize;
+            
+            const centerX = canvasSize / 2;
+            const centerY = canvasSize / 2;
+            tempCtx.fillText(character, centerX, centerY);
+            
+            const imageData = tempCtx.getImageData(0, 0, canvasSize, canvasSize);
+            const data = imageData.data;
+            
+            let minX = canvasSize, maxX = 0, minY = canvasSize, maxY = 0;
+            let hasPixels = false;
+            const threshold = 100;
+            
+            for (let py = 0; py < canvasSize; py++) {
+                for (let px = 0; px < canvasSize; px++) {
+                    const alpha = data[(py * canvasSize + px) * 4 + 3];
+                    if (alpha > threshold) {
+                        hasPixels = true;
+                        minX = Math.min(minX, px);
+                        maxX = Math.max(maxX, px);
+                        minY = Math.min(minY, py);
+                        maxY = Math.max(maxY, py);
+                    }
+                }
+            }
+            
+            if (!hasPixels) {
+                const size = fontSize * 0.4;
+                return { 
+                    path: `<rect x="${x - size/2}" y="${y - size/2}" width="${size}" height="${size}" />`,
+                    info: `Fallback rect: ${size}px`
+                };
+            }
+            
+            const renderedWidth = maxX - minX + 1;
+            const renderedHeight = maxY - minY + 1;
+            
+            const targetSize = Math.max(textWidth, textHeight);
+            const actualSize = Math.max(renderedWidth, renderedHeight);
+            const scale = targetSize / actualSize;
+            
+            const renderedCenterX = (minX + maxX) / 2;
+            const renderedCenterY = (minY + maxY) / 2;
+            const offsetX = x - (renderedCenterX - centerX) * scale;
+            const offsetY = y - (renderedCenterY - centerY) * scale;
+            
+            const paths = [];
+            const visited = new Set();
+            const step = Math.max(1, Math.min(3, Math.floor(fontSize / 15)));
+            
+            for (let py = minY; py <= maxY; py += step) {
+                for (let px = minX; px <= maxX; px += step) {
+                    const key = `${px},${py}`;
+                    if (visited.has(key)) continue;
+                    
+                    const alpha = data[(py * canvasSize + px) * 4 + 3];
+                    if (alpha > threshold) {
+                        visited.add(key);
+                        
+                        let width = step;
+                        let extendX = px + step;
+                        
+                        while (extendX <= maxX && !visited.has(`${extendX},${py}`)) {
+                            const extendAlpha = data[(py * canvasSize + extendX) * 4 + 3];
+                            if (extendAlpha > threshold) {
+                                visited.add(`${extendX},${py}`);
+                                width += step;
+                                extendX += step;
+                            } else {
+                                break;
+                            }
+                        }
+                        
+                        const rectX = offsetX + (px - centerX) * scale;
+                        const rectY = offsetY + (py - centerY) * scale;
+                        const rectWidth = width * scale;
+                        const rectHeight = step * scale;
+                        
+                        paths.push(`M ${rectX.toFixed(2)} ${rectY.toFixed(2)} L ${(rectX + rectWidth).toFixed(2)} ${rectY.toFixed(2)} L ${(rectX + rectWidth).toFixed(2)} ${(rectY + rectHeight).toFixed(2)} L ${rectX.toFixed(2)} ${(rectY + rectHeight).toFixed(2)} Z`);
+                    }
+                }
+            }
+            
+            if (paths.length === 0) {
+                const radius = fontSize * 0.3;
+                return {
+                    path: `<circle cx="${x}" cy="${y}" r="${radius}" />`,
+                    info: `Fallback circle: r=${radius}px`
+                };
+            }
+            
+            return {
+                path: `<path d="${paths.join(' ')}" />`,
+                info: `Rendered: ${renderedWidth}x${renderedHeight}px, Target: ${textWidth.toFixed(1)}x${fontSize}px, Scale: ${scale.toFixed(3)}, Paths: ${paths.length}`
+            };
+        }
+
+        function runTest() {
+            const char = document.getElementById('testChar').value || '★';
+            const fontSize = parseInt(document.getElementById('testSize').value);
+            const fontFamily = document.getElementById('testFont').value;
+            
+            // Update size display
+            document.getElementById('sizeDisplay').textContent = fontSize + 'px';
+            
+            // Test canvas rendering
+            const canvas = document.getElementById('testCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, 150, 150);
+            ctx.font = `${fontSize}px ${fontFamily}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = 'black';
+            ctx.fillText(char, 75, 75);
+            
+            // Get text metrics
+            const metrics = ctx.measureText(char);
+            document.getElementById('canvasInfo').innerHTML = 
+                `Font: ${fontSize}px ${fontFamily}<br>` +
+                `Text width: ${metrics.width.toFixed(1)}px<br>` +
+                `Text height: ~${fontSize}px`;
+            
+            // Test SVG path conversion
+            const result = getCharacterPath(char, 75, 75, fontSize, fontFamily);
+            const svg = document.getElementById('testSvg');
+            svg.innerHTML = result.path.replace('<path d=', '<path fill="black" d=')
+                                          .replace('<circle', '<circle fill="black"')
+                                          .replace('<rect', '<rect fill="black"');
+            
+            document.getElementById('svgInfo').innerHTML = 
+                `Font: ${fontSize}px ${fontFamily}<br>` +
+                result.info;
+        }
+
+        // Set up event listeners
+        document.getElementById('testBtn').addEventListener('click', runTest);
+        document.getElementById('testChar').addEventListener('input', runTest);
+        document.getElementById('testSize').addEventListener('input', runTest);
+        document.getElementById('testFont').addEventListener('change', runTest);
+
+        // Run initial test
+        runTest();
+    </script>
+</body>
+</html> 
