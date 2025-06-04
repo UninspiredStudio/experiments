@@ -305,9 +305,56 @@ label, .label {
     color: var(--us-fg-default);
 }
 .input-number:focus {
-    outline: 2px solid var(--us-accent-high);
-    outline-offset: 1px;
-    border-color: var(--us-accent-high); /* Optional focus border */
+    border-color: var(--us-accent-high); /* Use token accent color */
+    outline: none;
+    box-shadow: 0 0 0 1px var(--us-accent-high); /* Use token accent color */
+}
+
+/* Text input styles */
+.input-text {
+    width: 100%;
+    padding: var(--us-spacing-8-s); /* Use token spacing */
+    border: 1px solid var(--us-border-medium); /* Use token border */
+    border-radius: var(--us-radii-micro-small); /* Use token radius */
+    background-color: var(--us-bg-canvas); /* Use token background */
+    color: var(--us-fg-default); /* Use token text color */
+    font-size: var(--us-font-size-body); /* Use token font size */
+    font-family: var(--us-font-family-default); /* Use token font family */
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input-text:focus {
+    border-color: var(--us-accent-high); /* Use token accent color */
+    outline: none;
+    box-shadow: 0 0 0 1px var(--us-accent-high); /* Use token accent color */
+}
+
+/* Small text input variant */
+.input-text-small {
+    width: 60%;
+    max-width: 120px;
+    font-size: var(--us-font-size-label); /* Smaller font size */
+    padding: var(--us-spacing-4-xs); /* Smaller padding */
+}
+
+/* Select input styles */
+.input-select {
+    width: 100%;
+    padding: var(--us-spacing-8-s); /* Use token spacing */
+    border: 1px solid var(--us-border-medium); /* Use token border */
+    border-radius: var(--us-radii-micro-small); /* Use token radius */
+    background-color: var(--us-bg-canvas); /* Use token background */
+    color: var(--us-fg-default); /* Use token text color */
+    font-size: var(--us-font-size-body); /* Use token font size */
+    font-family: var(--us-font-family-default); /* Use token font family */
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+}
+
+.input-select:focus {
+    border-color: var(--us-accent-high); /* Use token accent color */
+    outline: none;
+    box-shadow: 0 0 0 1px var(--us-accent-high); /* Use token accent color */
 }
 
 .input-checkbox {

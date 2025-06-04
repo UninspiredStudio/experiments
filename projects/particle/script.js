@@ -44,6 +44,9 @@ const domElements = {
     recordVideoBtn: document.getElementById('recordVideoBtn'),
     downloadVideoBtn: document.getElementById('downloadVideoBtn'),
     videoRecordingStatus: document.getElementById('videoRecordingStatus'),
+    characterSettings: document.getElementById('characterSettings'),
+    particleCharacterInput: document.getElementById('particleCharacter'),
+    particleFontSelect: document.getElementById('particleFont'),
     controlsToDisable: []
 };
 
@@ -84,6 +87,8 @@ const state = {
     isProcessingRecording: false,
     particleSize: parseFloat(domElements.particleSizeSlider.value),
     particleShape: 'circle',
+    particleCharacter: '★',
+    particleFont: 'Arial',
     interactionMode: 'repel',
     lastTimestamp: 0,
     // Video recording state
@@ -103,14 +108,34 @@ class Particle {
         this.x = x; this.y = y; this.initialX = initialX; this.initialY = initialY;
         this.color = { ...color }; this.density = (Math.random() * 20) + 5;
         this.currentAlpha = 1; this.isRepelled = false;
+        // Assign a random character from the current character string
+        this.assignedCharacter = this.getRandomCharacter();
     }
+    
+    getRandomCharacter() {
+        if (state.particleCharacter && state.particleCharacter.length > 0) {
+            const randomIndex = Math.floor(Math.random() * state.particleCharacter.length);
+            return state.particleCharacter.charAt(randomIndex);
+        }
+        return '★'; // Fallback
+    }
+    
     draw(ctx) {
         if (this.currentAlpha <= 0) return;
         const size = state.particleSize * this.currentAlpha; if (size <= 0) return;
         ctx.fillStyle = `rgba(${Math.round(this.color.r)}, ${Math.round(this.color.g)}, ${Math.round(this.color.b)}, ${this.currentAlpha})`;
         if (state.particleShape === 'circle') {
             ctx.beginPath(); ctx.arc(this.x, this.y, size / 2, 0, Math.PI * 2); ctx.closePath(); ctx.fill();
-        } else if (state.particleShape === 'square') { ctx.fillRect(this.x - size / 2, this.y - size / 2, size, size); }
+        } else if (state.particleShape === 'square') { 
+            ctx.fillRect(this.x - size / 2, this.y - size / 2, size, size); 
+        } else if (state.particleShape === 'character') {
+            ctx.save();
+            ctx.font = `${size * 16}px ${state.particleFont}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(this.assignedCharacter, this.x, this.y);
+            ctx.restore();
+        }
     }
     update() { this._applyMouseInteraction(); this._applyReturnForce(); this._applyDrift(); }
     _applyMouseInteraction() {
@@ -587,7 +612,12 @@ function generateSVGString() {
             const color = `rgb(${Math.round(p.color.r)}, ${Math.round(p.color.g)}, ${Math.round(p.color.b)})`; const opacity = p.currentAlpha.toFixed(2);
             const cx = p.x.toFixed(2); const cy = p.y.toFixed(2);
             if (state.particleShape === 'circle') { const radius = (size / 2).toFixed(2); svgString += `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="${color}" fill-opacity="${opacity}" />`; }
-            else if (state.particleShape === 'square') { const halfSize = (size / 2); const xPos = (p.x - halfSize).toFixed(2); const yPos = (p.y - halfSize).toFixed(2); const side = size.toFixed(2); svgString += `<rect x="${xPos}" y="${yPos}" width="${side}" height="${side}" fill="${color}" fill-opacity="${opacity}" />`; } } });
+            else if (state.particleShape === 'square') { const halfSize = (size / 2); const xPos = (p.x - halfSize).toFixed(2); const yPos = (p.y - halfSize).toFixed(2); const side = size.toFixed(2); svgString += `<rect x="${xPos}" y="${yPos}" width="${side}" height="${side}" fill="${color}" fill-opacity="${opacity}" />`; }
+            else if (state.particleShape === 'character') { 
+                const fontSize = (size * 16).toFixed(2); 
+                const charToRender = p.assignedCharacter || '★';
+                svgString += `<text x="${cx}" y="${cy}" font-family="${state.particleFont}" font-size="${fontSize}" text-anchor="middle" dominant-baseline="central" fill="${color}" fill-opacity="${opacity}">${charToRender}</text>`; 
+            } } });
     svgString += `</svg>`; return svgString;
 }
 function downloadSVG() {
@@ -627,7 +657,34 @@ function handleDensityChange(event) { state.particleDensity = parseInt(event.tar
 function handleRadiusChange(event) { state.mouse.radius = parseInt(event.target.value); domElements.radiusValueSpan.textContent = state.mouse.radius; }
 function handleSpeedChange(event) { state.mouseEffectSpeedFactor = parseInt(event.target.value); domElements.speedValueSpan.textContent = state.mouseEffectSpeedFactor; console.log(`Mouse effect speed factor changed to ${state.mouseEffectSpeedFactor}.`); }
 function handleParticleSizeChange(event) { state.particleSize = parseFloat(event.target.value); domElements.particleSizeValue.textContent = state.particleSize.toFixed(1); }
-function handleParticleShapeChange(event) { if (event.target.checked) { state.particleShape = event.target.value; console.log(`Particle shape changed to ${state.particleShape}.`); } }
+function handleParticleShapeChange(event) { 
+    if (event.target.checked) { 
+        state.particleShape = event.target.value; 
+        toggleCharacterSettings(); 
+        console.log(`Particle shape changed to ${state.particleShape}.`); 
+    } 
+}
+function toggleCharacterSettings() {
+    const isCharacterShape = state.particleShape === 'character';
+    domElements.characterSettings.style.display = isCharacterShape ? 'block' : 'none';
+}
+function handleParticleCharacterChange(event) { 
+    const newChar = event.target.value.trim() || '★'; 
+    state.particleCharacter = newChar; 
+    // Update all existing particles with new random characters
+    updateParticleCharacters();
+    console.log(`Particle character(s) changed to '${state.particleCharacter}'.`); 
+}
+function updateParticleCharacters() {
+    // Reassign random characters to all existing particles
+    state.particles.forEach(particle => {
+        particle.assignedCharacter = particle.getRandomCharacter();
+    });
+}
+function handleParticleFontChange(event) { 
+    state.particleFont = event.target.value; 
+    console.log(`Particle font changed to ${state.particleFont}.`); 
+}
 function handleInteractionModeChange(event) { if (event.target.checked) { state.interactionMode = event.target.value; console.log(`Interaction mode changed to ${state.interactionMode}.`); } }
 function handleMouseMove(event) { const rect = domElements.canvas.getBoundingClientRect(); state.actualMouse.x = event.clientX - rect.left; state.actualMouse.y = event.clientY - rect.top; if (!state.isReplaying) { state.mouse.x = state.actualMouse.x; state.mouse.y = state.actualMouse.y; } if (state.isRecording) { state.recordedPath.push({ x: state.actualMouse.x, y: state.actualMouse.y, timestamp: performance.now() }); } }
 function handleMouseLeave() { state.actualMouse.x = null; state.actualMouse.y = null; if (!state.isReplaying) { state.mouse.x = null; state.mouse.y = null; } }
@@ -739,7 +796,8 @@ function initialize() {
         domElements.recordAnimationDurationInput, domElements.recordAnimationBtn, domElements.downloadRecordingBtn,
         domElements.particleSizeSlider, domElements.particleShapeRadios, domElements.interactionModeRadios,
         domElements.recordWithReplayBtn, // Add new button to disable list
-        domElements.videoRecordingDurationInput, domElements.recordVideoBtn, domElements.downloadVideoBtn
+        domElements.videoRecordingDurationInput, domElements.recordVideoBtn, domElements.downloadVideoBtn,
+        domElements.particleCharacterInput, domElements.particleFontSelect
     ];
 
     // Attach Event Listeners
@@ -749,6 +807,8 @@ function initialize() {
     domElements.transitionSpeedSlider.addEventListener('input', handleSpeedChange);
     domElements.particleSizeSlider.addEventListener('input', handleParticleSizeChange);
     domElements.particleShapeRadios.forEach(radio => radio.addEventListener('change', handleParticleShapeChange));
+    domElements.particleCharacterInput.addEventListener('input', handleParticleCharacterChange);
+    domElements.particleFontSelect.addEventListener('change', handleParticleFontChange);
     domElements.interactionModeRadios.forEach(radio => radio.addEventListener('change', handleInteractionModeChange));
     domElements.recordPathBtn.addEventListener('click', startCountdown);
     domElements.replayPathBtn.addEventListener('click', triggerReplay);
@@ -774,6 +834,9 @@ function initialize() {
     domElements.radiusValueSpan.textContent = state.mouse.radius;
     domElements.speedValueSpan.textContent = state.mouseEffectSpeedFactor;
     domElements.particleSizeValue.textContent = state.particleSize.toFixed(1);
+    domElements.particleCharacterInput.value = state.particleCharacter;
+    domElements.particleFontSelect.value = state.particleFont;
+    toggleCharacterSettings(); // Set initial visibility of character settings
     try {
         // Check if elements exist before trying to access properties
         const shapeCircleRadio = document.getElementById(`particleShape${state.particleShape.charAt(0).toUpperCase() + state.particleShape.slice(1)}`);
