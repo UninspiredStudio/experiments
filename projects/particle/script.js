@@ -100,6 +100,9 @@ const state = {
     videoRecordingTimeoutId: null,
     hasRecordedVideo: false,
     recordedVideoBlob: null,
+    // Configurable particle thresholds
+    particleAlphaThreshold: PARTICLE_ALPHA_THRESHOLD,
+    particleColorThreshold: PARTICLE_COLOR_THRESHOLD,
 };
 
 // --- Particle Class ---
@@ -172,31 +175,300 @@ class Particle {
 // --- Core Functions ---
 function createImageParticleDefinitions(img) {
     const { canvas } = domElements;
-    if (!canvas || canvas.width === 0 || canvas.height === 0) { console.error("Canvas not ready or has zero dimensions. Cannot create particle definitions."); return []; }
-    const tempCanvas = document.createElement('canvas'); const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
-    const canvasAspect = canvas.width / canvas.height; const imgAspect = img.width / img.height;
-    const padding = IMAGE_PADDING_FACTOR; const targetCanvasWidth = canvas.width * (1 - padding * 2);
-    const targetCanvasHeight = canvas.height * (1 - padding * 2); let drawWidth, drawHeight;
-    if (imgAspect > (targetCanvasWidth / targetCanvasHeight)) { drawWidth = targetCanvasWidth; drawHeight = drawWidth / imgAspect; }
-    else { drawHeight = targetCanvasHeight; drawWidth = drawHeight * imgAspect; }
-    const offsetX = (canvas.width - drawWidth) / 2; const offsetY = (canvas.height - drawHeight) / 2;
-    tempCanvas.width = canvas.width; tempCanvas.height = canvas.height;
+    
+    // Enhanced error checking with detailed logging
+    if (!canvas) {
+        console.error("Canvas element not found. Cannot create particle definitions.");
+        return [];
+    }
+    
+    if (canvas.width === 0 || canvas.height === 0) {
+        console.error(`Canvas has zero dimensions (${canvas.width}x${canvas.height}). Cannot create particle definitions.`);
+        return [];
+    }
+    
+    if (!img) {
+        console.error("Image is null or undefined. Cannot create particle definitions.");
+        return [];
+    }
+    
+    if (img.width === 0 || img.height === 0) {
+        console.error(`Image has zero dimensions (${img.width}x${img.height}). Cannot create particle definitions.`);
+        return [];
+    }
+    
+    console.log(`Creating particle definitions for image: ${img.width}x${img.height}, Canvas: ${canvas.width}x${canvas.height}`);
+    
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+    
+    if (!tempCtx) {
+        console.error("Failed to get 2D context from temporary canvas. Cannot create particle definitions.");
+        return [];
+    }
+    
+    const canvasAspect = canvas.width / canvas.height;
+    const imgAspect = img.width / img.height;
+    const padding = IMAGE_PADDING_FACTOR;
+    const targetCanvasWidth = canvas.width * (1 - padding * 2);
+    const targetCanvasHeight = canvas.height * (1 - padding * 2);
+    
+    let drawWidth, drawHeight;
+    if (imgAspect > (targetCanvasWidth / targetCanvasHeight)) {
+        drawWidth = targetCanvasWidth;
+        drawHeight = drawWidth / imgAspect;
+    } else {
+        drawHeight = targetCanvasHeight;
+        drawWidth = drawHeight * imgAspect;
+    }
+    
+    const offsetX = (canvas.width - drawWidth) / 2;
+    const offsetY = (canvas.height - drawHeight) / 2;
+    
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    
+    console.log(`Drawing image at: offset(${offsetX.toFixed(2)}, ${offsetY.toFixed(2)}), size(${drawWidth.toFixed(2)}x${drawHeight.toFixed(2)})`);
+    
     try {
         tempCtx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height); const data = imageData.data;
+        console.log("Image drawn successfully to temporary canvas");
+        
+        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        const data = imageData.data;
         const particleDefinitions = [];
+        
+        console.log(`Analyzing ${tempCanvas.width}x${tempCanvas.height} pixels with density ${state.particleDensity}`);
+        console.log(`Thresholds - Alpha: ${state.particleAlphaThreshold}, Color: ${state.particleColorThreshold}`);
+        
+        let totalPixelsChecked = 0;
+        let pixelsWithAlpha = 0;
+        let pixelsWithColor = 0;
+        let pixelsPassingBoth = 0;
+        
         for (let y = 0; y < tempCanvas.height; y += state.particleDensity) {
             for (let x = 0; x < tempCanvas.width; x += state.particleDensity) {
-                const index = (y * tempCanvas.width + x) * 4; const alpha = data[index + 3];
-                if (alpha > PARTICLE_ALPHA_THRESHOLD && (data[index] > PARTICLE_COLOR_THRESHOLD || data[index+1] > PARTICLE_COLOR_THRESHOLD || data[index+2] > PARTICLE_COLOR_THRESHOLD)) {
-                    const r = data[index]; const g = data[index + 1]; const b = data[index + 2]; const color = { r, g, b };
-                    particleDefinitions.push({ x, y, color, initialX: x, initialY: y });
+                totalPixelsChecked++;
+                const index = (y * tempCanvas.width + x) * 4;
+                const alpha = data[index + 3];
+                const r = data[index];
+                const g = data[index + 1];
+                const b = data[index + 2];
+                
+                if (alpha > state.particleAlphaThreshold) {
+                    pixelsWithAlpha++;
+                    
+                    // Updated logic to handle black and white images properly
+                    // For black and white images, black pixels (0,0,0) are valid content
+                    const isBlackPixel = (r <= 10 && g <= 10 && b <= 10); // Very dark pixels
+                    const isColorPixel = (r > state.particleColorThreshold || g > state.particleColorThreshold || b > state.particleColorThreshold);
+                    
+                    if (isColorPixel || isBlackPixel) {
+                        pixelsWithColor++;
+                        pixelsPassingBoth++;
+                        
+                        const color = { r, g, b };
+                        particleDefinitions.push({ x, y, color, initialX: x, initialY: y });
+                    }
                 }
             }
         }
-        console.log(`Created ${particleDefinitions.length} particle definitions.`); return particleDefinitions;
-    } catch (error) { console.error("Error processing image data:", error); return []; }
+        
+        console.log(`Pixel analysis results:`);
+        console.log(`- Total pixels checked: ${totalPixelsChecked}`);
+        console.log(`- Pixels with alpha > ${state.particleAlphaThreshold}: ${pixelsWithAlpha}`);
+        console.log(`- Pixels with color > ${state.particleColorThreshold}: ${pixelsWithColor}`);
+        console.log(`- Pixels passing both tests: ${pixelsPassingBoth}`);
+        console.log(`- Created ${particleDefinitions.length} particle definitions`);
+        
+        if (particleDefinitions.length === 0) {
+            console.warn("No particles created. Image might be too transparent or have low contrast.");
+            console.warn("Consider adjusting particle density, alpha threshold, or color threshold.");
+            
+            // Sample a few pixels to show their values
+            console.log("Sample pixel analysis (first 10 pixels):");
+            for (let i = 0; i < Math.min(10, totalPixelsChecked); i++) {
+                const x = (i % Math.ceil(tempCanvas.width / state.particleDensity)) * state.particleDensity;
+                const y = Math.floor(i / Math.ceil(tempCanvas.width / state.particleDensity)) * state.particleDensity;
+                const index = (y * tempCanvas.width + x) * 4;
+                const alpha = data[index + 3];
+                const r = data[index];
+                const g = data[index + 1];
+                const b = data[index + 2];
+                console.log(`  Pixel (${x},${y}): rgba(${r}, ${g}, ${b}, ${alpha})`);
+            }
+            
+            // Try with relaxed thresholds as fallback
+            console.log("Attempting fallback with relaxed thresholds...");
+            const relaxedAlphaThreshold = 25; // Much lower alpha threshold
+            const relaxedColorThreshold = 1; // Much lower color threshold
+            
+            console.log(`Fallback thresholds - Alpha: ${relaxedAlphaThreshold}, Color: ${relaxedColorThreshold}`);
+            
+            let fallbackCount = 0;
+            for (let y = 0; y < tempCanvas.height; y += state.particleDensity) {
+                for (let x = 0; x < tempCanvas.width; x += state.particleDensity) {
+                    const index = (y * tempCanvas.width + x) * 4;
+                    const alpha = data[index + 3];
+                    const r = data[index];
+                    const g = data[index + 1];
+                    const b = data[index + 2];
+                    
+                    if (alpha > relaxedAlphaThreshold) {
+                        // Apply same black and white logic in fallback
+                        const isBlackPixel = (r <= 10 && g <= 10 && b <= 10); // Very dark pixels
+                        const isColorPixel = (r > relaxedColorThreshold || g > relaxedColorThreshold || b > relaxedColorThreshold);
+                        
+                        if (isColorPixel || isBlackPixel) {
+                            const color = { r, g, b };
+                            particleDefinitions.push({ x, y, color, initialX: x, initialY: y });
+                            fallbackCount++;
+                        }
+                    }
+                }
+            }
+            
+            if (fallbackCount > 0) {
+                console.log(`Fallback successful: Created ${fallbackCount} particles with relaxed thresholds`);
+            } else {
+                console.warn("Even fallback thresholds failed to generate particles. Image may be completely transparent or corrupted.");
+            }
+        }
+        
+        return particleDefinitions;
+    } catch (error) {
+        console.error("Error processing image data:", error);
+        console.error("Error stack:", error.stack);
+        return [];
+    }
 }
+
+// Debug function for testing particle generation
+function testParticleGeneration(imageIndex = null) {
+    const targetIndex = imageIndex !== null ? imageIndex : state.currentImageIndex;
+    
+    if (targetIndex === -1 || targetIndex >= state.uploadedImages.length) {
+        console.error("No valid image selected or invalid index provided.");
+        console.log(`Current image index: ${state.currentImageIndex}, Total images: ${state.uploadedImages.length}`);
+        return;
+    }
+    
+    const imageData = state.uploadedImages[targetIndex];
+    console.log(`Testing particle generation for: ${imageData.name}`);
+    console.log(`Image dimensions: ${imageData.img.width}x${imageData.img.height}`);
+    console.log(`Canvas dimensions: ${domElements.canvas.width}x${domElements.canvas.height}`);
+    console.log(`Current particle density: ${state.particleDensity}`);
+    
+    const testDefinitions = createImageParticleDefinitions(imageData.img);
+    console.log(`Test result: ${testDefinitions.length} particles would be created`);
+    
+    return testDefinitions;
+}
+
+// Function to adjust thresholds for difficult images
+function adjustThresholds(alphaThreshold = null, colorThreshold = null) {
+    let thresholdsChanged = false;
+    
+    if (alphaThreshold !== null) {
+        console.log(`Changing alpha threshold from ${state.particleAlphaThreshold} to ${alphaThreshold}`);
+        state.particleAlphaThreshold = alphaThreshold;
+        thresholdsChanged = true;
+    }
+    
+    if (colorThreshold !== null) {
+        console.log(`Changing color threshold from ${state.particleColorThreshold} to ${colorThreshold}`);
+        state.particleColorThreshold = colorThreshold;
+        thresholdsChanged = true;
+    }
+    
+    console.log("Current thresholds:");
+    console.log(`- Alpha threshold: ${state.particleAlphaThreshold}`);
+    console.log(`- Color threshold: ${state.particleColorThreshold}`);
+    
+    if (thresholdsChanged) {
+        console.log("Thresholds changed. Clearing particle definitions for all images...");
+        // Clear all cached particle definitions so they get regenerated with new thresholds
+        state.uploadedImages.forEach(imgData => {
+            imgData.particleDefinitions = null;
+        });
+        
+        // If there's a current image, regenerate its particles
+        if (state.currentImageIndex !== -1) {
+            console.log("Regenerating particles for current image...");
+            const currentIndex = state.currentImageIndex;
+            state.currentImageIndex = -1; // Force regeneration
+            handleSwitchImage(currentIndex);
+        }
+    }
+}
+
+// Specific function for black and white images
+function testBlackAndWhite(imageIndex = null) {
+    const targetIndex = imageIndex !== null ? imageIndex : state.currentImageIndex;
+    
+    if (targetIndex === -1 || targetIndex >= state.uploadedImages.length) {
+        console.error("No valid image selected or invalid index provided.");
+        return;
+    }
+    
+    const imageData = state.uploadedImages[targetIndex];
+    console.log(`Testing black and white analysis for: ${imageData.name}`);
+    
+    // Quick analysis of the image to see pixel distribution
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+    const { canvas } = domElements;
+    
+    tempCanvas.width = Math.min(canvas.width, 200); // Sample size for quick analysis
+    tempCanvas.height = Math.min(canvas.height, 200);
+    
+    tempCtx.drawImage(imageData.img, 0, 0, tempCanvas.width, tempCanvas.height);
+    const imageDataSample = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+    const data = imageDataSample.data;
+    
+    let blackPixels = 0;
+    let whitePixels = 0;
+    let grayPixels = 0;
+    let transparentPixels = 0;
+    let totalPixels = 0;
+    
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3];
+        
+        totalPixels++;
+        
+        if (a < 100) {
+            transparentPixels++;
+        } else if (r <= 10 && g <= 10 && b <= 10) {
+            blackPixels++;
+        } else if (r >= 240 && g >= 240 && b >= 240) {
+            whitePixels++;
+        } else {
+            grayPixels++;
+        }
+    }
+    
+    console.log("=== Black & White Image Analysis ===");
+    console.log(`Total pixels sampled: ${totalPixels}`);
+    console.log(`Black pixels (≤ 10,10,10): ${blackPixels} (${(blackPixels/totalPixels*100).toFixed(1)}%)`);
+    console.log(`White pixels (≥ 240,240,240): ${whitePixels} (${(whitePixels/totalPixels*100).toFixed(1)}%)`);
+    console.log(`Gray pixels: ${grayPixels} (${(grayPixels/totalPixels*100).toFixed(1)}%)`);
+    console.log(`Transparent pixels (alpha < 100): ${transparentPixels} (${(transparentPixels/totalPixels*100).toFixed(1)}%)`);
+    
+    if (transparentPixels > totalPixels * 0.8) {
+        console.warn("⚠️  Image appears to be mostly transparent. Try adjustThresholds(25, 1)");
+    } else if (blackPixels + whitePixels > totalPixels * 0.8) {
+        console.log("✅ This appears to be a black and white image. The updated logic should handle it correctly now.");
+    } else {
+        console.log("ℹ️  This appears to be a grayscale or color image.");
+    }
+    
+    return { blackPixels, whitePixels, grayPixels, transparentPixels, totalPixels };
+}
+
 function updateImageListUI() {
     const { imageListDiv } = domElements; imageListDiv.innerHTML = '';
     if (state.uploadedImages.length === 0) { imageListDiv.innerHTML = '<p class="text-gray-500 text-sm">No images uploaded yet.</p>'; return; }
@@ -852,6 +1124,13 @@ function initialize() {
     setVideoRecordingStatus('');
     console.log("Initial UI setup complete.");
 
+    // Inform user about debug capabilities
+    console.log("");
+    console.log("🛠️  DEBUG HELP AVAILABLE");
+    console.log("If you experience 'Failed to generate definitions' errors with images,");
+    console.log("type 'particleDebugHelp()' in this console for assistance.");
+    console.log("");
+
     // Initial Resize and Animation Start
     // Wrap in a short timeout to ensure layout is stable
     setTimeout(() => {
@@ -871,4 +1150,61 @@ if (document.readyState === 'loading') {
 } else {
     // DOM is already loaded, call initialize directly
     initialize();
+}
+
+// Help function for console debugging
+function particleDebugHelp() {
+    console.log("=== Particle System Debug Help ===");
+    console.log("");
+    console.log("If you're getting 'Failed to generate definitions' errors, try these commands:");
+    console.log("");
+    console.log("1. Test particle generation:");
+    console.log("   testParticleGeneration()              - Test current image");
+    console.log("   testParticleGeneration(0)             - Test specific image by index");
+    console.log("   testBlackAndWhite()                   - Analyze black & white image");
+    console.log("");
+    console.log("2. Adjust thresholds for difficult images:");
+    console.log("   adjustThresholds(50, 2)               - Lower alpha to 50, color to 2");
+    console.log("   adjustThresholds(25, 1)               - Very permissive thresholds");
+    console.log("   adjustThresholds(null, 1)             - Only change color threshold");
+    console.log("");
+    console.log("3. Check current state:");
+    console.log("   console.log(state.uploadedImages)     - See all uploaded images");
+    console.log("   console.log(state.currentImageIndex)  - See current image index");
+    console.log("   console.log(state.particleDensity)    - See particle density setting");
+    console.log("");
+    console.log("Common issues and solutions:");
+    console.log("- Black & white images: Updated logic now handles black pixels correctly");
+    console.log("- Transparent images: Try adjustThresholds(25, 1)");
+    console.log("- Low contrast images: Try adjustThresholds(50, 1)");
+    console.log("- Too many particles: Increase density slider or call state.particleDensity = 10");
+    console.log("- Too few particles: Decrease density slider or call state.particleDensity = 3");
+    console.log("");
+    console.log("Current settings:");
+    console.log(`- Alpha threshold: ${state.particleAlphaThreshold}`);
+    console.log(`- Color threshold: ${state.particleColorThreshold}`);
+    console.log(`- Particle density: ${state.particleDensity}`);
+    console.log(`- Current image: ${state.currentImageIndex === -1 ? 'None' : state.uploadedImages[state.currentImageIndex]?.name}`);
+}
+
+// Expose debug functions globally for console access
+window.particleDebugHelp = particleDebugHelp;
+window.testParticleGeneration = testParticleGeneration;
+window.adjustThresholds = adjustThresholds;
+window.testBlackAndWhite = testBlackAndWhite;
+
+function updateImageListUI() {
+    const { imageListDiv } = domElements; imageListDiv.innerHTML = '';
+    if (state.uploadedImages.length === 0) { imageListDiv.innerHTML = '<p class="text-gray-500 text-sm">No images uploaded yet.</p>'; return; }
+    state.uploadedImages.forEach((imgData, index) => {
+        const item = document.createElement('div'); item.classList.add('image-item', 'p-2', 'rounded-md', 'flex', 'items-center', 'justify-between', 'mb-1');
+        if (index === state.currentImageIndex) { item.classList.add('active'); }
+        const infoDiv = document.createElement('div'); infoDiv.classList.add('flex', 'items-center', 'overflow-hidden', 'flex-grow');
+        const thumb = document.createElement('img'); thumb.src = imgData.img.src; thumb.alt = imgData.name; thumb.classList.add('mr-4', 'flex-shrink-0');
+        const nameSpan = document.createElement('span'); nameSpan.textContent = imgData.name.length > 15 ? imgData.name.substring(0, 12) + '...' : imgData.name; nameSpan.classList.add('text-sm', 'text-gray-200', 'truncate'); nameSpan.title = imgData.name;
+        infoDiv.appendChild(thumb); infoDiv.appendChild(nameSpan); item.addEventListener('click', () => handleSwitchImage(index));
+        const removeBtn = document.createElement('button'); removeBtn.textContent = 'X'; removeBtn.classList.add('remove-btn', 'flex-shrink-0', 'ml-4'); removeBtn.title = `Remove ${imgData.name}`;
+        removeBtn.addEventListener('click', (e) => { e.stopPropagation(); handleRemoveImage(index); });
+        item.appendChild(infoDiv); item.appendChild(removeBtn); imageListDiv.appendChild(item);
+    });
 } 
