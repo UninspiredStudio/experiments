@@ -43,11 +43,33 @@ const domElements = {
     recordVideoBtn: document.getElementById('recordVideoBtn'),
     downloadVideoBtn: document.getElementById('downloadVideoBtn'),
     videoRecordingStatus: document.getElementById('videoRecordingStatus'),
+    optimizedRecordingCheckbox: document.getElementById('optimizedRecordingCheckbox'),
     characterSettings: document.getElementById('characterSettings'),
     particleCharacterInput: document.getElementById('particleCharacter'),
     particleFontSelect: document.getElementById('particleFont'),
     controlsToDisable: []
 };
+
+// Populate controlsToDisable after DOM elements are referenced
+domElements.controlsToDisable = [
+    domElements.imageUpload,
+    domElements.densitySlider,
+    domElements.mouseRadiusSlider,
+    domElements.transitionSpeedSlider,
+    domElements.recordPathBtn,
+    domElements.replayPathBtn,
+    domElements.recordAnimationBtn,
+    domElements.recordWithReplayBtn,
+    domElements.downloadRecordingBtn,
+    domElements.downloadSvgBtn,
+    domElements.recordVideoBtn,
+    domElements.downloadVideoBtn,
+    domElements.particleSizeSlider,
+    domElements.particleShapeRadios,
+    domElements.interactionModeRadios,
+    domElements.particleCharacterInput,
+    domElements.particleFontSelect
+];
 
 // --- State Variables ---
 const state = {
@@ -85,8 +107,8 @@ const state = {
     hasRecordedAnimation: false,
     isProcessingRecording: false,
     particleSize: parseFloat(domElements.particleSizeSlider.value),
-    particleShape: 'circle',
-    particleCharacter: '★',
+    particleShape: 'character',
+    particleCharacter: '?',
     particleFont: 'Arial',
     interactionMode: 'repel',
     lastTimestamp: 0,
@@ -99,6 +121,13 @@ const state = {
     videoRecordingTimeoutId: null,
     hasRecordedVideo: false,
     recordedVideoBlob: null,
+    // Optimized recording state
+    recordingSetup: null,
+    recordingCanvas: null,
+    isOptimizedRecording: false,
+    // Custom background state
+    exportBackgroundColor: '#00ff00', // Default green screen
+    useTransparentBackground: false,
     // Configurable particle thresholds
     particleAlphaThreshold: PARTICLE_ALPHA_THRESHOLD,
     particleColorThreshold: PARTICLE_COLOR_THRESHOLD,
@@ -164,9 +193,17 @@ class Particle {
     }
     _applyDrift() {
          if (this.isRepelled) return;
-         const driftDx = this.initialX - this.x; const driftDy = this.initialY - this.y;
-         if (Math.abs(driftDx) < PARTICLE_DRIFT_THRESHOLD && Math.abs(driftDy) < PARTICLE_DRIFT_THRESHOLD) {
-             this.x += (Math.random() - 0.5) * PARTICLE_DRIFT_SPEED; this.y += (Math.random() - 0.5) * PARTICLE_DRIFT_SPEED;
+         
+         // Only apply drift when particles are away from their initial position
+         // This prevents jittering when there's no interaction
+         const driftDx = this.initialX - this.x; 
+         const driftDy = this.initialY - this.y;
+         const distanceFromInitial = Math.sqrt(driftDx * driftDx + driftDy * driftDy);
+         
+         // Only add drift if particle is significantly away from initial position
+         if (distanceFromInitial > PARTICLE_DRIFT_THRESHOLD) {
+             this.x += (Math.random() - 0.5) * PARTICLE_DRIFT_SPEED; 
+             this.y += (Math.random() - 0.5) * PARTICLE_DRIFT_SPEED;
          }
        }
 }
@@ -469,52 +506,174 @@ function testBlackAndWhite(imageIndex = null) {
 }
 
 function updateImageListUI() {
-    const { imageListDiv } = domElements; imageListDiv.innerHTML = '';
-    if (state.uploadedImages.length === 0) { imageListDiv.innerHTML = '<p class="text-gray-500 text-sm">No images uploaded yet.</p>'; return; }
-    state.uploadedImages.forEach((imgData, index) => {
-        const item = document.createElement('div'); item.classList.add('image-item', 'p-2', 'rounded-md', 'flex', 'items-center', 'justify-between', 'mb-1');
-        if (index === state.currentImageIndex) { item.classList.add('active'); }
-        const infoDiv = document.createElement('div'); infoDiv.classList.add('flex', 'items-center', 'overflow-hidden', 'flex-grow');
-        const thumb = document.createElement('img'); thumb.src = imgData.img.src; thumb.alt = imgData.name; thumb.classList.add('mr-4', 'flex-shrink-0');
-        const nameSpan = document.createElement('span'); nameSpan.textContent = imgData.name.length > 15 ? imgData.name.substring(0, 12) + '...' : imgData.name; nameSpan.classList.add('text-sm', 'text-gray-200', 'truncate'); nameSpan.title = imgData.name;
-        infoDiv.appendChild(thumb); infoDiv.appendChild(nameSpan); item.addEventListener('click', () => handleSwitchImage(index));
-        const removeBtn = document.createElement('button'); removeBtn.textContent = 'X'; removeBtn.classList.add('remove-btn', 'flex-shrink-0', 'ml-4'); removeBtn.title = `Remove ${imgData.name}`;
-        removeBtn.addEventListener('click', (e) => { e.stopPropagation(); handleRemoveImage(index); });
-        item.appendChild(infoDiv); item.appendChild(removeBtn); imageListDiv.appendChild(item);
+    const { imageListDiv } = domElements;
+    
+    // Check if the imageList element exists (it may have been removed from the UI)
+    if (!imageListDiv) {
+        console.log('Image list UI element not found - skipping UI update');
+        return;
+    }
+    
+    imageListDiv.innerHTML = '';
+    
+    if (state.uploadedImages.length === 0) {
+        imageListDiv.innerHTML = '<p class="text-gray-500 text-sm">No image loaded yet.</p>';
+        return;
+    }
+    
+    // Display the single image
+    const imgData = state.uploadedImages[0];
+    const item = document.createElement('div');
+    item.classList.add('image-item', 'p-2', 'rounded-md', 'flex', 'items-center', 'mb-1');
+    if (state.currentImageIndex === 0) {
+        item.classList.add('active');
+    }
+    
+    const infoDiv = document.createElement('div');
+    infoDiv.classList.add('flex', 'items-center', 'overflow-hidden', 'flex-grow');
+    
+    const thumb = document.createElement('img');
+    thumb.src = imgData.img.src;
+    thumb.alt = imgData.name;
+    thumb.classList.add('mr-4', 'flex-shrink-0');
+    
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = imgData.name.length > 20 ? imgData.name.substring(0, 17) + '...' : imgData.name;
+    nameSpan.classList.add('text-sm', 'text-gray-200', 'truncate');
+    nameSpan.title = imgData.name;
+    
+    infoDiv.appendChild(thumb);
+    infoDiv.appendChild(nameSpan);
+    item.appendChild(infoDiv);
+    
+    // Add replace button instead of remove button
+    const replaceBtn = document.createElement('button');
+    replaceBtn.textContent = 'Replace';
+    replaceBtn.classList.add('replace-btn', 'flex-shrink-0', 'ml-4', 'text-xs', 'px-2', 'py-1', 'rounded');
+    replaceBtn.title = 'Replace current image';
+    replaceBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        domElements.imageUpload.click(); // Trigger file picker
     });
+    
+    item.appendChild(replaceBtn);
+    imageListDiv.appendChild(item);
 }
 function processFiles(files) {
-     if (!files || files.length === 0) return; if (state.uploadedImages.length === 0 && domElements.imageListDiv.querySelector('p')) { domElements.imageListDiv.innerHTML = ''; }
-     Array.from(files).forEach((file) => {
-         if (file.type.startsWith('image/')) {
-             const reader = new FileReader(); reader.onload = (e) => { const img = new Image(); img.onload = () => {
-                     const newImageId = state.imageCounter++; const newImageData = { id: newImageId, name: file.name, img: img, particleDefinitions: null };
-                     state.uploadedImages.push(newImageData); updateImageListUI(); if (state.uploadedImages.length === 1) { handleSwitchImage(0); } };
-                 img.onerror = () => console.error(`Error loading image: ${file.name}`); img.src = e.target.result; };
-             reader.onerror = () => console.error(`Error reading file: ${file.name}`); reader.readAsDataURL(file);
-         } else { console.warn(`Skipping non-image file: ${file.name}`); } });
-  }
-function handleRemoveImage(indexToRemove) {
-    if (indexToRemove < 0 || indexToRemove >= state.uploadedImages.length) return; const wasCurrentImage = (indexToRemove === state.currentImageIndex);
-    const removedImageName = state.uploadedImages[indexToRemove].name; state.uploadedImages.splice(indexToRemove, 1); console.log(`Removed image: ${removedImageName}`);
-    if (wasCurrentImage) { if (state.uploadedImages.length > 0) { const newIndex = Math.min(indexToRemove, state.uploadedImages.length - 1); state.currentImageIndex = -1; handleSwitchImage(newIndex); }
-        else { handleSwitchImage(-1); } }
-    else { if (indexToRemove < state.currentImageIndex) { state.currentImageIndex--; } updateImageListUI(); }
-     if (!state.hasRecordedPath || wasCurrentImage) { domElements.replayPathBtn.disabled = true; state.hasRecordedPath = false; }
-     state.hasRecordedAnimation = false; state.recordedFrames = []; updateControlStates();
-   }
+    if (!files || files.length === 0) return;
+    
+    // Clear existing image if any
+    if (state.uploadedImages.length > 0) {
+        console.log(`Replacing existing image: ${state.uploadedImages[0].name}`);
+        state.uploadedImages = [];
+        state.currentImageIndex = -1;
+        state.particles = [];
+        // Reset recording states since image is being replaced
+        state.hasRecordedPath = false;
+        state.hasRecordedAnimation = false;
+        state.recordedFrames = [];
+        updateControlStates();
+    }
+    
+    // Only process the first file since we only allow one image
+    const file = files[0];
+    if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const newImageId = state.imageCounter++;
+                const newImageData = {
+                    id: newImageId,
+                    name: file.name,
+                    img: img,
+                    particleDefinitions: null
+                };
+                
+                // Replace the entire array with just this one image
+                state.uploadedImages = [newImageData];
+                updateImageListUI();
+                handleSwitchImage(0);
+                console.log(`Loaded new image: ${file.name}`);
+            };
+            img.onerror = () => console.error(`Error loading image: ${file.name}`);
+            img.src = e.target.result;
+        };
+        reader.onerror = () => console.error(`Error reading file: ${file.name}`);
+        reader.readAsDataURL(file);
+    } else {
+        console.warn(`Invalid file type. Please select an image file.`);
+    }
+}
+// handleRemoveImage function removed - not needed in single image mode
 function handleSwitchImage(newIndex) {
-    console.log(`Attempting switch to index: ${newIndex}`); if (newIndex < -1 || newIndex >= state.uploadedImages.length || newIndex === state.currentImageIndex) {
-         if (newIndex === -1 && state.currentImageIndex !== -1) { /* Allow clearing */ } else { console.log(`Switch aborted: Index ${newIndex} invalid or same as current (${state.currentImageIndex}).`); return; } }
-    const oldIndex = state.currentImageIndex; state.currentImageIndex = newIndex; console.log(`Switching from ${oldIndex} to ${newIndex}`);
-     state.hasRecordedAnimation = false; state.recordedFrames = []; setAnimationRecordingStatus('');
-    if (state.currentImageIndex === -1) { console.log("Clearing particles."); state.particles = []; updateImageListUI(); updateControlStates(); return; }
-    const imageData = state.uploadedImages[state.currentImageIndex]; if (!imageData || !imageData.img) { console.error(`Image data not found for index ${state.currentImageIndex}. Reverting.`); state.currentImageIndex = oldIndex; updateImageListUI(); updateControlStates(); return; }
-    console.log(`Loading image: ${imageData.name}`); if (!imageData.particleDefinitions) { console.log(`Generating definitions for ${imageData.name}...`); imageData.particleDefinitions = createImageParticleDefinitions(imageData.img);
-         if (!imageData.particleDefinitions || imageData.particleDefinitions.length === 0) { console.error(`Failed to generate definitions for ${imageData.name}. Clearing particles.`); state.currentImageIndex = -1; state.particles = []; updateImageListUI(); updateControlStates(); return; } }
-    const newParticleDefs = imageData.particleDefinitions; const nextParticlesArray = []; console.log(`Creating ${newParticleDefs.length} new particles from definitions...`);
-    for (const def of newParticleDefs) { const newP = new Particle(def.initialX, def.initialY, def.color, def.initialX, def.initialY); nextParticlesArray.push(newP); }
-    state.particles = nextParticlesArray; console.log(`Particle array updated with ${state.particles.length} particles.`); updateImageListUI(); updateControlStates();
+    console.log(`Attempting switch to index: ${newIndex}`);
+    
+    // In single image mode, we only have index 0 or -1 (no image)
+    if (newIndex !== 0 && newIndex !== -1) {
+        console.log(`Switch aborted: Invalid index ${newIndex} for single image mode.`);
+        return;
+    }
+    
+    if (newIndex === state.currentImageIndex) {
+        console.log(`Switch aborted: Already at index ${newIndex}.`);
+        return;
+    }
+    
+    const oldIndex = state.currentImageIndex;
+    state.currentImageIndex = newIndex;
+    console.log(`Switching from ${oldIndex} to ${newIndex}`);
+    
+    // Reset animation states when switching images
+    state.hasRecordedAnimation = false;
+    state.recordedFrames = [];
+    setAnimationRecordingStatus('');
+    
+    if (state.currentImageIndex === -1) {
+        console.log("Clearing particles.");
+        state.particles = [];
+        updateImageListUI();
+        updateControlStates();
+        return;
+    }
+    
+    const imageData = state.uploadedImages[0]; // Only one image in single mode
+    if (!imageData || !imageData.img) {
+        console.error(`Image data not found. Reverting.`);
+        state.currentImageIndex = oldIndex;
+        updateImageListUI();
+        updateControlStates();
+        return;
+    }
+    
+    console.log(`Loading image: ${imageData.name}`);
+    if (!imageData.particleDefinitions) {
+        console.log(`Generating definitions for ${imageData.name}...`);
+        imageData.particleDefinitions = createImageParticleDefinitions(imageData.img);
+        
+        if (!imageData.particleDefinitions || imageData.particleDefinitions.length === 0) {
+            console.error(`Failed to generate definitions for ${imageData.name}. Clearing particles.`);
+            state.currentImageIndex = -1;
+            state.particles = [];
+            updateImageListUI();
+            updateControlStates();
+            return;
+        }
+    }
+    
+    const newParticleDefs = imageData.particleDefinitions;
+    const nextParticlesArray = [];
+    console.log(`Creating ${newParticleDefs.length} new particles from definitions...`);
+    
+    for (const def of newParticleDefs) {
+        const newP = new Particle(def.initialX, def.initialY, def.color, def.initialX, def.initialY);
+        nextParticlesArray.push(newP);
+    }
+    
+    state.particles = nextParticlesArray;
+    console.log(`Particle array updated with ${state.particles.length} particles.`);
+    updateImageListUI();
+    updateControlStates();
 }
 
 // --- Path Recording and Replay Functions ---
@@ -522,8 +681,12 @@ function updateControlStates() {
     const disableAll = state.isCountingDown || state.isRecording || state.isReplaying || state.isRecordingAnimation || state.isProcessingRecording || state.isRecordingVideo;
     const noImageLoaded = state.currentImageIndex === -1;
     domElements.controlsToDisable.forEach(control => {
+        if (!control) return; // Skip null/undefined controls
+        
         if (control instanceof NodeList) {
-            control.forEach(radio => radio.disabled = disableAll);
+            control.forEach(radio => {
+                if (radio) radio.disabled = disableAll;
+            });
         }
         else if (control === domElements.replayPathBtn) {
             control.disabled = disableAll || noImageLoaded || !state.hasRecordedPath;
@@ -547,24 +710,56 @@ function updateControlStates() {
         }
     });
      // Path Button Text
-     if (state.isCountingDown && state.countdownType === 'path') { domElements.recordPathBtn.textContent = 'Starting...'; } // Path countdown
-     else if (state.isRecording) { domElements.recordPathBtn.textContent = `Recording Path...`; }
-     else if (state.isReplaying && !state.isRecordingAnimation) { domElements.replayPathBtn.textContent = 'Replaying...'; } // Only show Replaying if NOT also recording animation
-     else { domElements.recordPathBtn.textContent = 'Record Path'; domElements.replayPathBtn.textContent = 'Replay Path'; }
+     if (state.isCountingDown && state.countdownType === 'path') { 
+         if (domElements.recordPathBtn) domElements.recordPathBtn.textContent = 'Starting...'; 
+     } // Path countdown
+     else if (state.isRecording) { 
+         if (domElements.recordPathBtn) domElements.recordPathBtn.textContent = `Recording Path...`; 
+     }
+     else if (state.isReplaying && !state.isRecordingAnimation) { 
+         if (domElements.replayPathBtn) domElements.replayPathBtn.textContent = 'Replaying...'; 
+     } // Only show Replaying if NOT also recording animation
+     else { 
+         if (domElements.recordPathBtn) domElements.recordPathBtn.textContent = 'Record Path'; 
+         if (domElements.replayPathBtn) domElements.replayPathBtn.textContent = 'Replay Path'; 
+     }
     // Animation Button Text
-    if (state.isRecordingAnimation && state.isReplaying) { domElements.recordWithReplayBtn.textContent = 'Rec & Replay...'; domElements.recordAnimationBtn.textContent = 'Record Animation'; } // Specific state
-    else if (state.isRecordingAnimation) { domElements.recordAnimationBtn.textContent = 'Recording...'; domElements.recordWithReplayBtn.textContent = 'Record with Path Replay'; }
-    else { domElements.recordAnimationBtn.textContent = 'Record Animation'; domElements.recordWithReplayBtn.textContent = 'Record with Path Replay'; }
+    if (state.isRecordingAnimation && state.isReplaying) { 
+        if (domElements.recordWithReplayBtn) domElements.recordWithReplayBtn.textContent = 'Rec & Replay...'; 
+        if (domElements.recordAnimationBtn) domElements.recordAnimationBtn.textContent = 'Record Animation'; 
+    } // Specific state
+    else if (state.isRecordingAnimation) { 
+        if (domElements.recordAnimationBtn) domElements.recordAnimationBtn.textContent = 'Recording...'; 
+        if (domElements.recordWithReplayBtn) domElements.recordWithReplayBtn.textContent = 'Record with Path Replay'; 
+    }
+    else { 
+        if (domElements.recordAnimationBtn) domElements.recordAnimationBtn.textContent = 'Record Animation'; 
+        if (domElements.recordWithReplayBtn) domElements.recordWithReplayBtn.textContent = 'Record with Path Replay'; 
+    }
     // Download Button Text
-    if (state.isProcessingRecording) { domElements.downloadRecordingBtn.textContent = 'Zipping...'; }
-    else { domElements.downloadRecordingBtn.textContent = 'Download ZIP'; }
+    if (state.isProcessingRecording) { 
+        if (domElements.downloadRecordingBtn) domElements.downloadRecordingBtn.textContent = 'Zipping...'; 
+    }
+    else { 
+        if (domElements.downloadRecordingBtn) domElements.downloadRecordingBtn.textContent = 'Download ZIP'; 
+    }
     // Video Recording Button Text
-    if (state.isRecordingVideo) { domElements.recordVideoBtn.textContent = 'Recording Video...'; }
-    else if (state.isCountingDown && state.countdownType === 'video') { domElements.recordVideoBtn.textContent = 'Starting Video...'; } // Video countdown state
-    else { domElements.recordVideoBtn.textContent = 'Record Canvas Video'; }
+    if (state.isRecordingVideo) { 
+        if (domElements.recordVideoBtn) domElements.recordVideoBtn.textContent = 'Recording Video...'; 
+    }
+    else if (state.isCountingDown && state.countdownType === 'video') { 
+        if (domElements.recordVideoBtn) domElements.recordVideoBtn.textContent = 'Starting Video...'; 
+    } // Video countdown state
+    else { 
+        if (domElements.recordVideoBtn) domElements.recordVideoBtn.textContent = 'Record Canvas Video'; 
+    }
     // Video Download Button Text
-    if (state.hasRecordedVideo) { domElements.downloadVideoBtn.textContent = 'Download Video'; }
-    else { domElements.downloadVideoBtn.textContent = 'Download Video'; }
+    if (state.hasRecordedVideo) { 
+        if (domElements.downloadVideoBtn) domElements.downloadVideoBtn.textContent = 'Download Video'; 
+    }
+    else { 
+        if (domElements.downloadVideoBtn) domElements.downloadVideoBtn.textContent = 'Download Video'; 
+    }
 }
 function setAnimationRecordingStatus(message, type = '') {
     const statusEl = domElements.animationRecordingStatus; statusEl.textContent = message; statusEl.className = ''; if (type) { statusEl.classList.add(type); }
@@ -678,43 +873,102 @@ function setVideoRecordingStatus(message, type = '') {
     }
 }
 
-function startVideoRecording() {
-    if (state.isCountingDown || state.isRecording || state.isReplaying || state.isRecordingAnimation || state.isProcessingRecording || state.isRecordingVideo || state.currentImageIndex === -1) {
-        console.warn("Cannot start video recording due to current state or missing image.");
-        return;
+// New function to calculate the bounds of the current image content
+function calculateImageContentBounds() {
+    const { canvas } = domElements;
+    
+    if (state.currentImageIndex === -1 || state.currentImageIndex >= state.uploadedImages.length) {
+        console.warn("No active image to calculate bounds for");
+        return null;
+    }
+    
+    const img = state.uploadedImages[state.currentImageIndex].img;
+    const padding = IMAGE_PADDING_FACTOR;
+    const targetCanvasWidth = canvas.width * (1 - padding * 2);
+    const targetCanvasHeight = canvas.height * (1 - padding * 2);
+    const imgAspect = img.width / img.height;
+    
+    let drawWidth, drawHeight;
+    if (imgAspect > (targetCanvasWidth / targetCanvasHeight)) {
+        drawWidth = targetCanvasWidth;
+        drawHeight = drawWidth / imgAspect;
+    } else {
+        drawHeight = targetCanvasHeight;
+        drawWidth = drawHeight * imgAspect;
+    }
+    
+    const offsetX = (canvas.width - drawWidth) / 2;
+    const offsetY = (canvas.height - drawHeight) / 2;
+    
+    return {
+        x: Math.floor(offsetX),
+        y: Math.floor(offsetY),
+        width: Math.ceil(drawWidth),
+        height: Math.ceil(drawHeight)
+    };
+}
+
+// New function to create optimized recording canvas
+function createOptimizedRecordingCanvas() {
+    // Check if optimized recording is enabled
+    if (!domElements.optimizedRecordingCheckbox.checked) {
+        console.log("Optimized recording is disabled, using full canvas");
+        return null;
     }
 
-    // Start countdown first
-    startVideoCountdown();
+    const bounds = calculateImageContentBounds();
+    if (!bounds) {
+        console.warn("Could not calculate image bounds for optimized recording");
+        return null;
+    }
+    
+    // Add some minimal padding to ensure we don't crop particles at edges
+    const extraPadding = 20;
+    const recordingWidth = bounds.width + (extraPadding * 2);
+    const recordingHeight = bounds.height + (extraPadding * 2);
+    
+    // Create recording canvas
+    const recordingCanvas = document.createElement('canvas');
+    recordingCanvas.width = recordingWidth;
+    recordingCanvas.height = recordingHeight;
+    const recordingCtx = recordingCanvas.getContext('2d');
+    
+    console.log(`Created optimized recording canvas: ${recordingWidth}x${recordingHeight} (vs main canvas ${domElements.canvas.width}x${domElements.canvas.height})`);
+    
+    return {
+        canvas: recordingCanvas,
+        ctx: recordingCtx,
+        bounds: bounds,
+        padding: extraPadding
+    };
 }
 
-function startVideoCountdown() {
-    if (state.isCountingDown || state.isRecording || state.isReplaying || state.isRecordingAnimation || state.isProcessingRecording || state.isRecordingVideo || state.currentImageIndex === -1) return;
+// New function to copy current frame to recording canvas with transparent background
+function copyFrameToRecordingCanvas(recordingSetup) {
+    const { canvas: recordingCanvas, ctx: recordingCtx, bounds, padding } = recordingSetup;
+    const { canvas: mainCanvas } = domElements;
     
-    state.isCountingDown = true;
-    state.countdownType = 'video'; // Set countdown type for video recording
-    state.countdownValue = COUNTDOWN_START_VALUE;
-    domElements.countdownDisplay.textContent = state.countdownValue;
-    domElements.countdownDisplay.style.display = 'block';
-    updateControlStates();
+    // Clear the recording canvas
+    recordingCtx.clearRect(0, 0, recordingCanvas.width, recordingCanvas.height);
     
-    console.log("Starting video recording countdown...");
+    // Fill with custom background color if not transparent
+    if (!state.useTransparentBackground && state.exportBackgroundColor !== 'transparent') {
+        recordingCtx.fillStyle = state.exportBackgroundColor;
+        recordingCtx.fillRect(0, 0, recordingCanvas.width, recordingCanvas.height);
+    }
     
-    state.countdownIntervalId = setInterval(() => {
-        state.countdownValue--;
-        domElements.countdownDisplay.textContent = state.countdownValue;
-        
-        if (state.countdownValue <= 0) {
-            clearInterval(state.countdownIntervalId);
-            state.countdownIntervalId = null;
-            domElements.countdownDisplay.style.display = 'none';
-            state.isCountingDown = false;
-            state.countdownType = null; // Clear countdown type
-            startActualVideoRecording(); // Start the actual recording after countdown
-        }
-    }, 1000);
+    // Set compositing mode for proper alpha blending
+    recordingCtx.globalCompositeOperation = 'source-over';
+    
+    // Copy the image content area from main canvas to recording canvas
+    recordingCtx.drawImage(
+        mainCanvas,
+        bounds.x - padding, bounds.y - padding, bounds.width + (padding * 2), bounds.height + (padding * 2), // Source area (with padding)
+        0, 0, recordingCanvas.width, recordingCanvas.height // Destination area
+    );
 }
 
+// Modified startActualVideoRecording function to use optimized canvas
 function startActualVideoRecording() {
     // Check if MediaRecorder is supported
     if (!window.MediaRecorder) {
@@ -724,8 +978,33 @@ function startActualVideoRecording() {
     }
 
     try {
-        // Get the canvas stream
-        const stream = domElements.canvas.captureStream(30); // 30 FPS
+        // Define video quality constants
+        const MAX_VIDEO_BITRATE = 150000000; // 150 Mbps
+        
+        // Create optimized recording setup
+        const recordingSetup = createOptimizedRecordingCanvas();
+        if (!recordingSetup) {
+            // Fallback to main canvas if optimization fails
+            console.warn("Falling back to main canvas recording");
+            const stream = domElements.canvas.captureStream(60);
+            if (!stream) {
+                console.error("Failed to capture canvas stream");
+                setVideoRecordingStatus("Error: Failed to capture canvas stream");
+                return;
+            }
+            state.recordingSetup = null;
+            state.recordingCanvas = domElements.canvas;
+        } else {
+            // Use optimized recording canvas
+            state.recordingSetup = recordingSetup;
+            state.recordingCanvas = recordingSetup.canvas;
+            
+            // Start copying frames to recording canvas
+            state.isOptimizedRecording = true;
+        }
+        
+        // Get the stream from the appropriate canvas
+        const stream = state.recordingCanvas.captureStream(60); // 60 FPS
         if (!stream) {
             console.error("Failed to capture canvas stream");
             setVideoRecordingStatus("Error: Failed to capture canvas stream");
@@ -740,18 +1019,71 @@ function startActualVideoRecording() {
             return;
         }
 
-        // Create MediaRecorder
-        let options = {};
-        if (MediaRecorder.isTypeSupported('video/mp4')) {
-            options.mimeType = 'video/mp4';
-        } else if (MediaRecorder.isTypeSupported('video/webm; codecs=vp9')) {
-            options.mimeType = 'video/webm; codecs=vp9';
-        } else if (MediaRecorder.isTypeSupported('video/webm')) {
-            options.mimeType = 'video/webm';
+        // Try H.265 with alpha support first, then fallback to other codecs
+        const codecOptions = [
+            { 
+                mimeType: 'video/mp4; codecs="hev1.1.6.L93.B0"', // H.265 Main Profile
+                videoBitsPerSecond: MAX_VIDEO_BITRATE,
+                description: 'H.265 MP4'
+            },
+            { 
+                mimeType: 'video/mp4; codecs="hvc1.1.6.L93.B0"', // H.265 alternative
+                videoBitsPerSecond: MAX_VIDEO_BITRATE,
+                description: 'H.265 MP4 (alt)'
+            },
+            { 
+                mimeType: 'video/webm; codecs="vp9"', // VP9 with alpha support
+                videoBitsPerSecond: MAX_VIDEO_BITRATE,
+                description: 'WebM VP9 (with alpha)'
+            },
+            { 
+                mimeType: 'video/mp4; codecs="avc1.42E01E,mp4a.40.2"', // H.264 fallback
+                videoBitsPerSecond: MAX_VIDEO_BITRATE,
+                description: 'H.264 MP4 (no alpha)'
+            },
+            { 
+                mimeType: 'video/mp4', 
+                videoBitsPerSecond: MAX_VIDEO_BITRATE,
+                description: 'MP4 (default)'
+            },
+            { 
+                mimeType: 'video/webm', 
+                videoBitsPerSecond: MAX_VIDEO_BITRATE,
+                description: 'WebM (default)'
+            }
+        ];
+        
+        let selectedCodec = null;
+        for (const option of codecOptions) {
+            if (MediaRecorder.isTypeSupported(option.mimeType)) {
+                selectedCodec = option;
+                break;
+            }
+        }
+        
+        if (!selectedCodec) {
+            selectedCodec = { mimeType: '', videoBitsPerSecond: MAX_VIDEO_BITRATE, description: 'Browser default' };
+        }
+        
+        console.log(`Using codec: ${selectedCodec.description} (${selectedCodec.mimeType || 'default'})`);
+        console.log("Target Bitrate:", selectedCodec.videoBitsPerSecond);
+
+        // Create MediaRecorder with selected codec
+        const options = { 
+            mimeType: selectedCodec.mimeType || undefined,
+            videoBitsPerSecond: selectedCodec.videoBitsPerSecond
+        };
+        
+        // Remove mimeType if empty to let browser choose
+        if (!selectedCodec.mimeType) {
+            delete options.mimeType;
         }
 
         state.mediaRecorder = new MediaRecorder(stream, options);
         state.recordedVideoChunks = [];
+        
+        // Store the selected codec info for later use
+        state.mediaRecorder.selectedCodec = selectedCodec;
 
         // Set up event handlers
         state.mediaRecorder.ondataavailable = (event) => {
@@ -767,8 +1099,13 @@ function startActualVideoRecording() {
                 const mimeType = state.mediaRecorder.mimeType || 'video/webm';
                 state.recordedVideoBlob = new Blob(state.recordedVideoChunks, { type: mimeType });
                 state.hasRecordedVideo = true;
-                setVideoRecordingStatus(`Video recorded successfully (${(state.recordedVideoBlob.size / (1024 * 1024)).toFixed(2)} MB). Ready to download.`, 'ready');
-                console.log(`Video recording completed. Blob size: ${state.recordedVideoBlob.size} bytes`);
+                
+                const dimensions = state.recordingSetup ? 
+                    `${state.recordingSetup.canvas.width}x${state.recordingSetup.canvas.height}` : 
+                    `${domElements.canvas.width}x${domElements.canvas.height}`;
+                    
+                setVideoRecordingStatus(`Video recorded successfully (${(state.recordedVideoBlob.size / (1024 * 1024)).toFixed(2)} MB, ${dimensions}). Ready to download.`, 'ready');
+                console.log(`Video recording completed. Blob size: ${state.recordedVideoBlob.size} bytes, Dimensions: ${dimensions}`);
             } else {
                 state.hasRecordedVideo = false;
                 state.recordedVideoBlob = null;
@@ -776,7 +1113,10 @@ function startActualVideoRecording() {
                 console.log("Video recording completed, but no data was captured.");
             }
             
-            // Clean up
+            // Clean up recording setup
+            state.recordingSetup = null;
+            state.recordingCanvas = null;
+            state.isOptimizedRecording = false;
             state.mediaRecorder = null;
             updateControlStates();
         };
@@ -795,8 +1135,14 @@ function startActualVideoRecording() {
         state.videoRecordingStartTime = performance.now();
 
         updateControlStates();
-        setVideoRecordingStatus(`Recording video... (0/${domElements.videoRecordingDurationInput.value}s)`, 'recording');
-        console.log(`Starting video recording for ${state.videoRecordingDuration}ms...`);
+        
+        const recordingType = state.recordingSetup ? "optimized" : "full canvas";
+        const dimensions = state.recordingSetup ? 
+            `${state.recordingSetup.canvas.width}x${state.recordingSetup.canvas.height}` : 
+            `${domElements.canvas.width}x${domElements.canvas.height}`;
+            
+        setVideoRecordingStatus(`Recording ${recordingType} video (${dimensions})... (0/${domElements.videoRecordingDurationInput.value}s)`, 'recording');
+        console.log(`Starting ${recordingType} video recording for ${state.videoRecordingDuration}ms at ${dimensions}`);
 
         state.mediaRecorder.start(100); // Record in 100ms chunks
 
@@ -809,6 +1155,9 @@ function startActualVideoRecording() {
         console.error("Error starting video recording:", error);
         setVideoRecordingStatus(`Error starting recording: ${error.message}`);
         state.isRecordingVideo = false;
+        state.recordingSetup = null;
+        state.recordingCanvas = null;
+        state.isOptimizedRecording = false;
         updateControlStates();
     }
 }
@@ -832,6 +1181,11 @@ function stopVideoRecording() {
         state.mediaRecorder.stream.getTracks().forEach(track => track.stop());
     }
 
+    // Clean up recording setup
+    state.recordingSetup = null;
+    state.recordingCanvas = null;
+    state.isOptimizedRecording = false;
+
     updateControlStates();
 }
 
@@ -846,17 +1200,44 @@ function downloadRecordedVideo() {
         const a = document.createElement('a');
         a.href = url;
         
-        // Determine file extension based on mime type
+        // Determine file extension and add codec info to filename
         let extension = 'webm';
         if (state.recordedVideoBlob.type.includes('mp4')) {
             extension = 'mp4';
+        }
+        
+        let codecInfo = '';
+        let backgroundInfo = '';
+        
+        if (state.mediaRecorder && state.mediaRecorder.selectedCodec) {
+            const codec = state.mediaRecorder.selectedCodec;
+            if (codec.description.includes('H.265')) {
+                codecInfo = '_h265';
+            } else if (codec.description.includes('VP9')) {
+                codecInfo = '_vp9_alpha';
+            } else if (codec.description.includes('H.264')) {
+                codecInfo = '_h264';
+            }
+        }
+        
+        // Add background type to filename
+        if (state.useTransparentBackground || state.exportBackgroundColor === 'transparent') {
+            backgroundInfo = '_transparent';
+        } else if (state.exportBackgroundColor === '#00ff00') {
+            backgroundInfo = '_greenscreen';
+        } else if (state.exportBackgroundColor === '#0000ff') {
+            backgroundInfo = '_bluescreen';
+        } else if (state.exportBackgroundColor === '#ff00ff') {
+            backgroundInfo = '_magentascreen';
+        } else if (state.exportBackgroundColor !== '#000000' && state.exportBackgroundColor !== '#ffffff') {
+            backgroundInfo = '_customscreen';
         }
         
         const currentImageName = state.currentImageIndex !== -1 
             ? state.uploadedImages[state.currentImageIndex].name.split('.').slice(0, -1).join('.')
             : 'canvas';
         
-        a.download = `${currentImageName}_video_${Date.now()}.${extension}`;
+        a.download = `${currentImageName}_video${codecInfo}${backgroundInfo}_${Date.now()}.${extension}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1065,7 +1446,14 @@ function downloadSVG() {
 function animate(timestamp) {
     if (!state.ctx) return; // Don't run if context isn't ready
     const { ctx } = state; const { canvas } = domElements; if (!state.lastTimestamp) state.lastTimestamp = timestamp;
-    const deltaTime = (timestamp - state.lastTimestamp) / 1000.0; state.lastTimestamp = timestamp; ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const deltaTime = (timestamp - state.lastTimestamp) / 1000.0; state.lastTimestamp = timestamp; 
+    
+    // Clear canvas and apply custom background when recording (for both optimized and full canvas recording)
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (state.isRecordingVideo && !state.useTransparentBackground && state.exportBackgroundColor !== 'transparent') {
+        ctx.fillStyle = state.exportBackgroundColor;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
     if (state.isReplaying) { drawReplayPath(ctx, deltaTime); } // Updates state.mouse if replaying
     for (let i = 0; i < state.particles.length; i++) { const p = state.particles[i]; p.update(); p.draw(ctx); } // Particles react to state.mouse
     if (state.isRecordingAnimation) { const svgFrame = generateSVGString(); state.recordedFrames.push(svgFrame); // Capture frame if recording
@@ -1073,18 +1461,63 @@ function animate(timestamp) {
              const elapsedSeconds = ((performance.now() - state.animationRecordingStartTime) / 1000).toFixed(1);
              const statusMsg = state.isReplaying ? `Recording & Replaying Path...` : `Recording...`; // Adjust status message
              setAnimationRecordingStatus(`${statusMsg} (${elapsedSeconds}/${domElements.recordAnimationDurationInput.value}s) Frames: ${state.recordedFrames.length}`, 'recording'); } }
-    // Update video recording status
+    // Update video recording status and copy frame if optimized recording
     if (state.isRecordingVideo) {
         const elapsedSeconds = ((performance.now() - state.videoRecordingStartTime) / 1000).toFixed(1);
         const maxDuration = domElements.videoRecordingDurationInput.value;
-        setVideoRecordingStatus(`Recording video... (${elapsedSeconds}/${maxDuration}s)`, 'recording');
+        
+        const recordingType = state.recordingSetup ? "optimized" : "full canvas";
+        const dimensions = state.recordingSetup ? 
+            `${state.recordingSetup.canvas.width}x${state.recordingSetup.canvas.height}` : 
+            `${domElements.canvas.width}x${domElements.canvas.height}`;
+        
+        let codecInfo = '';
+        if (state.mediaRecorder && state.mediaRecorder.selectedCodec) {
+            codecInfo = ` - ${state.mediaRecorder.selectedCodec.description}`;
+        }
+        
+        let backgroundInfo = '';
+        if (state.useTransparentBackground || state.exportBackgroundColor === 'transparent') {
+            backgroundInfo = ' - Transparent bg';
+        } else if (state.exportBackgroundColor === '#00ff00') {
+            backgroundInfo = ' - Green screen';
+        } else if (state.exportBackgroundColor === '#0000ff') {
+            backgroundInfo = ' - Blue screen';
+        } else if (state.exportBackgroundColor === '#ff00ff') {
+            backgroundInfo = ' - Magenta screen';
+        } else {
+            backgroundInfo = ` - Custom bg (${state.exportBackgroundColor})`;
+        }
+            
+        setVideoRecordingStatus(`Recording ${recordingType} video (${dimensions})${codecInfo}${backgroundInfo}... (${elapsedSeconds}/${maxDuration}s)`, 'recording');
+        
+        // Copy current frame to recording canvas if using optimized recording
+        if (state.isOptimizedRecording && state.recordingSetup) {
+            copyFrameToRecordingCanvas(state.recordingSetup);
+        }
     }
     requestAnimationFrame(animate);
 }
 
 // --- Event Handlers ---
 function handleFileChange(event) { processFiles(event.target.files); event.target.value = null; }
-function handleDensityChange(event) { state.particleDensity = parseInt(event.target.value); domElements.densityValueSpan.textContent = state.particleDensity; console.log(`Particle density changed to ${state.particleDensity}. Clearing definitions.`); state.uploadedImages.forEach(imgData => imgData.particleDefinitions = null); if (state.currentImageIndex !== -1) { const currentIndex = state.currentImageIndex; state.currentImageIndex = -1; handleSwitchImage(currentIndex); } }
+function handleDensityChange(event) { 
+    let newDensity = parseInt(event.target.value); 
+    // Ensure density cannot go below 2
+    if (newDensity < 2) {
+        newDensity = 2;
+        event.target.value = 2;
+    }
+    state.particleDensity = newDensity; 
+    domElements.densityValueSpan.textContent = state.particleDensity; 
+    console.log(`Particle density changed to ${state.particleDensity}. Clearing definitions.`); 
+    state.uploadedImages.forEach(imgData => imgData.particleDefinitions = null); 
+    if (state.currentImageIndex !== -1) { 
+        const currentIndex = state.currentImageIndex; 
+        state.currentImageIndex = -1; 
+        handleSwitchImage(currentIndex); 
+    } 
+}
 function handleRadiusChange(event) { state.mouse.radius = parseInt(event.target.value); domElements.radiusValueSpan.textContent = state.mouse.radius; }
 function handleSpeedChange(event) { state.mouseEffectSpeedFactor = parseInt(event.target.value); domElements.speedValueSpan.textContent = state.mouseEffectSpeedFactor; console.log(`Mouse effect speed factor changed to ${state.mouseEffectSpeedFactor}.`); }
 function handleParticleSizeChange(event) { state.particleSize = parseFloat(event.target.value); domElements.particleSizeValue.textContent = state.particleSize.toFixed(1); }
@@ -1097,7 +1530,13 @@ function handleParticleShapeChange(event) {
 }
 function toggleCharacterSettings() {
     const isCharacterShape = state.particleShape === 'character';
-    domElements.characterSettings.style.display = isCharacterShape ? 'block' : 'none';
+    if (isCharacterShape) {
+        domElements.characterSettings.style.display = 'block';
+        domElements.characterSettings.className = 'character-settings-expanded';
+    } else {
+        domElements.characterSettings.style.display = 'none';
+        domElements.characterSettings.className = 'mb-3';
+    }
 }
 function handleParticleCharacterChange(event) { 
     const newChar = event.target.value.trim() || '★'; 
@@ -1228,6 +1667,7 @@ function initialize() {
         domElements.particleSizeSlider, domElements.particleShapeRadios, domElements.interactionModeRadios,
         domElements.recordWithReplayBtn, // Add new button to disable list
         domElements.videoRecordingDurationInput, domElements.recordVideoBtn, domElements.downloadVideoBtn,
+        domElements.optimizedRecordingCheckbox,
         domElements.particleCharacterInput, domElements.particleFontSelect
     ];
 
@@ -1244,12 +1684,40 @@ function initialize() {
     domElements.recordPathBtn.addEventListener('click', startCountdown);
     domElements.replayPathBtn.addEventListener('click', triggerReplay);
     domElements.showReplayPathCheckbox.addEventListener('change', handleShowPathChange);
-    domElements.recordAnimationBtn.addEventListener('click', startAnimationRecording);
-    domElements.recordWithReplayBtn.addEventListener('click', handleRecordWithReplay); // Attach listener for new button
-    domElements.downloadRecordingBtn.addEventListener('click', downloadRecordedAnimation);
-    domElements.downloadSvgBtn.addEventListener('click', downloadSVG);
-    domElements.recordVideoBtn.addEventListener('click', startVideoRecording);
-    domElements.downloadVideoBtn.addEventListener('click', downloadRecordedVideo);
+    if (domElements.recordAnimationBtn) domElements.recordAnimationBtn.addEventListener('click', startAnimationRecording);
+    if (domElements.recordWithReplayBtn) domElements.recordWithReplayBtn.addEventListener('click', handleRecordWithReplay); // Attach listener for new button
+    if (domElements.downloadRecordingBtn) domElements.downloadRecordingBtn.addEventListener('click', downloadRecordedAnimation);
+    if (domElements.downloadSvgBtn) domElements.downloadSvgBtn.addEventListener('click', downloadSVG);
+    if (domElements.recordVideoBtn) domElements.recordVideoBtn.addEventListener('click', startVideoRecording);
+    if (domElements.downloadVideoBtn) domElements.downloadVideoBtn.addEventListener('click', downloadRecordedVideo);
+    
+    // Background color control event listeners
+    const backgroundColorPicker = document.getElementById('backgroundColorPicker');
+    const backgroundPresets = document.getElementById('backgroundPresets');
+    
+    if (backgroundColorPicker) {
+        backgroundColorPicker.addEventListener('change', function(e) {
+            state.exportBackgroundColor = e.target.value;
+            if (backgroundPresets) backgroundPresets.value = 'custom'; // Add custom option if not exists
+            console.log('Export background color changed to:', state.exportBackgroundColor);
+        });
+    }
+    
+    if (backgroundPresets) {
+        backgroundPresets.addEventListener('change', function(e) {
+            const value = e.target.value;
+            if (value === 'transparent') {
+                state.useTransparentBackground = true;
+                state.exportBackgroundColor = 'transparent';
+            } else {
+                state.useTransparentBackground = false;
+                state.exportBackgroundColor = value;
+                if (backgroundColorPicker) backgroundColorPicker.value = value;
+            }
+            console.log('Background preset changed to:', value);
+        });
+    }
+    
     domElements.canvas.addEventListener('mousemove', handleMouseMove);
     domElements.canvas.addEventListener('mouseleave', handleMouseLeave);
     domElements.body.addEventListener('dragenter', handleDragEnter);
@@ -1261,12 +1729,12 @@ function initialize() {
 
     // Initial UI Setup
     updateImageListUI();
-    domElements.densityValueSpan.textContent = state.particleDensity;
-    domElements.radiusValueSpan.textContent = state.mouse.radius;
-    domElements.speedValueSpan.textContent = state.mouseEffectSpeedFactor;
-    domElements.particleSizeValue.textContent = state.particleSize.toFixed(1);
-    domElements.particleCharacterInput.value = state.particleCharacter;
-    domElements.particleFontSelect.value = state.particleFont;
+    if (domElements.densityValueSpan) domElements.densityValueSpan.textContent = state.particleDensity;
+    if (domElements.radiusValueSpan) domElements.radiusValueSpan.textContent = state.mouse.radius;
+    if (domElements.speedValueSpan) domElements.speedValueSpan.textContent = state.mouseEffectSpeedFactor;
+    if (domElements.particleSizeValue) domElements.particleSizeValue.textContent = state.particleSize.toFixed(1);
+    if (domElements.particleCharacterInput) domElements.particleCharacterInput.value = state.particleCharacter;
+    if (domElements.particleFontSelect) domElements.particleFontSelect.value = state.particleFont;
     toggleCharacterSettings(); // Set initial visibility of character settings
     try {
         // Check if elements exist before trying to access properties
@@ -1277,12 +1745,15 @@ function initialize() {
     } catch (e) {
         console.warn("Error setting initial radio button states:", e);
     }
-    domElements.showReplayPathCheckbox.checked = state.showReplayPath;
+    if (domElements.showReplayPathCheckbox) domElements.showReplayPathCheckbox.checked = state.showReplayPath;
     updateControlStates();
     setAnimationRecordingStatus('');
     setVideoRecordingStatus('');
     console.log("Initial UI setup complete.");
-
+    
+    // Load default image (image3 from img placeholder folder)
+    loadDefaultImage();
+    
     // Inform user about debug capabilities
     console.log("");
     console.log("🛠️  DEBUG HELP AVAILABLE");
@@ -1300,6 +1771,43 @@ function initialize() {
     }, 50); // Slightly shorter delay
 
     console.log("Initialization setup complete.");
+}
+
+// Function to load the default image
+function loadDefaultImage() {
+    const defaultImagePath = '../../img-placeholder/3.jpeg';
+    
+    const img = new Image();
+    img.onload = function() {
+        console.log('Default image loaded successfully:', defaultImagePath);
+        
+        // Clear any existing images first (single image mode)
+        state.uploadedImages = [];
+        state.currentImageIndex = -1;
+        state.particles = [];
+        
+        // Create image data object similar to how files are processed
+        const imageData = {
+            img: img,
+            name: 'Default Image 3',
+            particleDefinitions: null
+        };
+        
+        // Set as the single image
+        state.uploadedImages = [imageData];
+        state.imageCounter++;
+        
+        // Update UI and switch to this image
+        updateImageListUI();
+        handleSwitchImage(0);
+    };
+    
+    img.onerror = function() {
+        console.warn('Could not load default image from:', defaultImagePath);
+        console.log('You can upload an image manually using the upload button.');
+    };
+    
+    img.src = defaultImagePath;
 }
 
 // --- Start ---
@@ -1433,3 +1941,40 @@ window.testParticleGeneration = testParticleGeneration;
 window.adjustThresholds = adjustThresholds;
 window.testBlackAndWhite = testBlackAndWhite;
 window.testCharacterPath = testCharacterPath;
+
+function startVideoRecording() {
+    if (state.isCountingDown || state.isRecording || state.isReplaying || state.isRecordingAnimation || state.isProcessingRecording || state.isRecordingVideo || state.currentImageIndex === -1) {
+        console.warn("Cannot start video recording due to current state or missing image.");
+        return;
+    }
+
+    // Start countdown first
+    startVideoCountdown();
+}
+
+function startVideoCountdown() {
+    if (state.isCountingDown || state.isRecording || state.isReplaying || state.isRecordingAnimation || state.isProcessingRecording || state.isRecordingVideo || state.currentImageIndex === -1) return;
+    
+    state.isCountingDown = true;
+    state.countdownType = 'video'; // Set countdown type for video recording
+    state.countdownValue = COUNTDOWN_START_VALUE;
+    domElements.countdownDisplay.textContent = state.countdownValue;
+    domElements.countdownDisplay.style.display = 'block';
+    updateControlStates();
+    
+    console.log("Starting video recording countdown...");
+    
+    state.countdownIntervalId = setInterval(() => {
+        state.countdownValue--;
+        domElements.countdownDisplay.textContent = state.countdownValue;
+        
+        if (state.countdownValue <= 0) {
+            clearInterval(state.countdownIntervalId);
+            state.countdownIntervalId = null;
+            domElements.countdownDisplay.style.display = 'none';
+            state.isCountingDown = false;
+            state.countdownType = null; // Clear countdown type
+            startActualVideoRecording(); // Start the actual recording after countdown
+        }
+    }, 1000);
+}

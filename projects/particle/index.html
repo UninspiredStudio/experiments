@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Particle</title>
+    <title>Particle by Uninspired Studio</title>
     <script src="js/jszip.min.js"></script>
     <link rel="stylesheet" href="base/tokens.css">
     <link rel="stylesheet" href="styles.css">
@@ -14,52 +14,44 @@
         <h1 class="sidebar-title">Image Animator</h1>
 
         <div class="mb-4 flex-shrink-0">
-            <label for="imageUpload" class="label mb-2">Upload Images:</label>
+            <label for="imageUpload" class="label mb-2">Upload Image:</label>
             <div class="input-file-wrapper">
-                <input type="file" id="imageUpload" accept="image/*" multiple
+                <input type="file" id="imageUpload" accept="image/*"
                        class="input-file">
             </div>
         </div>
 
-        <div class="sidebar-section">
-            <h3 class="sidebar-subtitle">Uploaded Images</h3>
-            <div id="imageList" class="mb-2">
-                <p class="text-gray-500 text-sm">No images uploaded yet.</p>
-            </div>
-        </div>
+
 
         <div class="sidebar-section">
             <h3 class="sidebar-subtitle">Particle Settings</h3>
             <div class="mb-3">
                  <label for="particleDensity" class="label">Density:</label>
-                 <input type="range" id="particleDensity" min="0.1" max="20" value="5" class="input-range">
-                 <span class="text-xs text-subtle">Lower is denser (<span id="densityValue">5</span>)</span>
+                 <input type="range" id="particleDensity" min="2" max="20" value="12" class="input-range">
+                 <span class="text-xs text-subtle">Lower is denser (<span id="densityValue">12</span>)</span>
             </div>
              <div class="mb-3">
                  <label for="particleSizeSlider" class="label">Size:</label>
-                 <input type="range" id="particleSizeSlider" min="0.1" max="15" step="0.1" value="1.5" class="input-range">
-                 <span class="text-xs text-subtle">Size: <span id="particleSizeValue">1.5</span>px</span>
+                 <input type="range" id="particleSizeSlider" min="0.1" max="15" step="0.1" value="6.4" class="input-range">
+                 <span class="text-xs text-subtle">Size: <span id="particleSizeValue">6.4</span>px</span>
             </div>
              <div class="mb-2">
                  <span class="label">Shape:</span>
-                 <div class="flex space-x-4 radio-group">
-                     <label class="text-sm text-subtle flex items-center">
-                         <input type="radio" id="particleShapeCircle" name="particleShape" value="circle" checked> Circle
-                     </label>
-                     <label class="text-sm text-subtle flex items-center">
-                         <input type="radio" id="particleShapeSquare" name="particleShape" value="square"> Square
-                     </label>
-                     <label class="text-sm text-subtle flex items-center">
-                         <input type="radio" id="particleShapeCharacter" name="particleShape" value="character"> Character
-                     </label>
+                 <div class="segmented-tab">
+                     <input type="radio" id="particleShapeCircle" name="particleShape" value="circle">
+                     <label for="particleShapeCircle">Circle</label>
+                     <input type="radio" id="particleShapeSquare" name="particleShape" value="square">
+                     <label for="particleShapeSquare">Square</label>
+                     <input type="radio" id="particleShapeCharacter" name="particleShape" value="character" checked>
+                     <label for="particleShapeCharacter">Character</label>
                  </div>
              </div>
              
              <!-- Character settings (shown only when character shape is selected) -->
-             <div id="characterSettings" class="mb-3" style="display: none;">
+             <div id="characterSettings" class="character-settings-expanded">
                  <label for="particleCharacter" class="label">Character(s):</label>
-                 <input type="text" id="particleCharacter" value="★" 
-                        class="input-text input-text-small mb-2" placeholder="Enter characters">
+                 <input type="text" id="particleCharacter" value="?" 
+                        class="input-text" placeholder="Enter characters">
                  <label for="particleFont" class="label">Font:</label>
                  <select id="particleFont" class="input-select">
                      <option value="Arial">Arial</option>
@@ -82,23 +74,21 @@
              <h3 class="sidebar-subtitle">Interaction Settings</h3>
              <div class="mb-3">
                   <label for="mouseRadius" class="label">Interaction Radius:</label>
-                  <input type="range" id="mouseRadius" min="1" max="800" value="100" class="input-range">
-                  <span class="text-xs text-subtle"><span id="radiusValue">100</span>px</span>
+                  <input type="range" id="mouseRadius" min="1" max="800" value="300" class="input-range">
+                  <span class="text-xs text-subtle"><span id="radiusValue">300</span>px</span>
              </div>
               <div class="mb-3">
                   <label for="transitionSpeed" class="label">Effect Speed:</label>
-                  <input type="range" id="transitionSpeed" min="1" max="500" value="60" class="input-range">
-                  <span class="text-xs text-subtle">Higher is slower (<span id="speedValue">60</span>)</span>
+                  <input type="range" id="transitionSpeed" min="1" max="500" value="10" class="input-range">
+                  <span class="text-xs text-subtle">Higher is slower (<span id="speedValue">10</span>)</span>
              </div>
               <div class="mb-2">
                   <span class="label">Mode:</span>
-                  <div class="flex space-x-4 radio-group">
-                      <label class="text-sm text-subtle flex items-center">
-                          <input type="radio" id="interactionModeRepel" name="interactionMode" value="repel" checked> Repel
-                      </label>
-                      <label class="text-sm text-subtle flex items-center">
-                          <input type="radio" id="interactionModeAttract" name="interactionMode" value="attract"> Attract
-                      </label>
+                  <div class="segmented-tab">
+                      <input type="radio" id="interactionModeRepel" name="interactionMode" value="repel" checked>
+                      <label for="interactionModeRepel">Repel</label>
+                      <input type="radio" id="interactionModeAttract" name="interactionMode" value="attract">
+                      <label for="interactionModeAttract">Attract</label>
                   </div>
               </div>
          </div>
@@ -152,11 +142,30 @@
                 <input type="number" id="videoRecordingDurationInput" min="1" max="60" value="10"
                        class="input-number">
              </div>
+             <div class="control-item">
+                <input type="checkbox" id="optimizedRecordingCheckbox" checked>
+                <label for="optimizedRecordingCheckbox">Optimized Recording (crop to image bounds)</label>
+             </div>
+             <div class="control-group">
+                <label for="backgroundColorPicker">Export Background Color:</label>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="color" id="backgroundColorPicker" value="#00ff00" style="width: 40px; height: 30px; border: 1px solid var(--us-border-hard); border-radius: var(--us-radii-micro-small); cursor: pointer;">
+                    <select id="backgroundPresets" style="flex: 1; padding: 5px; border: 1px solid var(--us-border-hard); border-radius: var(--us-radii-micro-small); background-color: var(--us-bg-mid); color: var(--us-fg-default);">
+                        <option value="#00ff00">Green Screen</option>
+                        <option value="#0000ff">Blue Screen</option>
+                        <option value="#ff00ff">Magenta Screen</option>
+                        <option value="transparent">Transparent</option>
+                        <option value="#000000">Black</option>
+                        <option value="#ffffff">White</option>
+                    </select>
+                </div>
+                <span style="font-size: var(--us-font-size-label); color: var(--us-fg-subtext);">Choose background color for video export (for chroma keying)</span>
+             </div>
              <div class="space-y-2 mb-2">
-                 <button id="recordVideoBtn" class="w-full button button-indigo transition">
+                 <button id="recordVideoBtn" class="w-full button button-red transition">
                    Record Canvas Video
                  </button>
-                 <button id="downloadVideoBtn" class="w-full button button-violet transition" disabled>
+                 <button id="downloadVideoBtn" class="w-full button button-teal transition" disabled>
                    Download Video
                  </button>
              </div>

@@ -1,0 +1,264 @@
+/* Styles refactored to use tokens */
+body { 
+    overflow: hidden; 
+    background-color: var(--us-bg-canvas); /* Changed from #111 */
+    color: var(--us-fg-default); /* Changed from #eee */
+    font-family: var(--us-font-family-default); /* Changed from sans-serif */
+    display: flex; 
+    min-height: 100vh; 
+}
+.container { 
+    display: flex; 
+    width: 100%; 
+    height: 100vh; 
+}
+.controls { 
+    width: 320px; /* Increased from 270px for bigger width-wise */
+    padding: var(--us-spacing-20); /* Changed from 20px */
+    background-color: var(--us-bg-lowest); /* Changed from var(--us-bg-low) to use BG-Lowest */
+    overflow-y: auto;
+    display: flex; 
+    flex-direction: column; 
+    gap: var(--us-spacing-16-m); /* Changed from 15px, using closest token */
+    border: 1px solid var(--us-border-medium); /* Changed from #333 */
+    border-radius: var(--us-radii-micro-medium);
+
+    margin-bottom: var(--us-spacing-20); /* Added bottom margin for floating appearance */
+}
+.controls h2 { 
+    
+    margin-top: 0; 
+    margin-bottom: var(--us-spacing-8-s); /* Changed from 10px */
+    color: var(--us-fg-default); /* Changed from #fff */
+    text-align: center; 
+    font-size: var(--us-font-size-heading-2); /* Approximated 1.2em */
+    line-height: var(--us-line-height-heading-2);
+    font-weight: var(--us-font-weight-bold);
+}
+.controls h3 { 
+    margin-top: var(--us-spacing-32); /* Changed from 10px */
+    color: var(--us-fg-subtext); /* Changed from #bbb */
+    font-size: var(--us-font-size-heading-2); /* Made bigger - using heading-2 instead of heading-3 */
+    line-height: var(--us-line-height-heading-2);
+    font-weight: var(--us-font-weight-bold);
+    padding-bottom: var(--us-spacing-2); /* Changed from 3px */
+}
+
+.controls h4 {
+    margin-top: var(--us-spacing-20);
+    margin-bottom: var(--us-spacing-8-s);
+    color: var(--us-fg-subtext);
+    font-size: var(--us-font-size-body);
+    line-height: var(--us-line-height-body);
+    font-weight: var(--us-font-weight-bold);
+    padding-bottom: var(--us-spacing-2);
+}
+
+.controls input[type="file"] { 
+    font-size: var(--us-font-size-body); /* Approximated 0.9em */
+    margin-top: var(--us-spacing-4-xs); /* Changed from 5px */
+}
+.controls input[type="file"]::file-selector-button { 
+    padding: var(--us-spacing-4-xs) var(--us-spacing-8-s); /* Changed from 5px 10px */
+    border: 1px solid var(--us-border-hard); /* Changed from #555 */
+    border-radius: var(--us-radii-micro-small); /* Changed from 4px */
+    background-color: var(--us-bg-mid); /* Changed from #444 */
+    color: var(--us-fg-default); /* Changed from #eee */
+    cursor: pointer; 
+    transition: background-color 0.2s ease; 
+    margin-top: var(--us-spacing-4-xs); /* Changed from 5px */
+}
+.controls input[type="file"]::file-selector-button:hover { 
+    background-color: var(--us-bg-high); /* Changed from #555 */
+}
+
+/* New control-item styles from grid project */
+.control-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    color: var(--us-fg-subtext);
+}
+
+.control-group { 
+    display: flex; 
+    flex-direction: column; 
+    gap: var(--us-spacing-4-xs); /* Changed from 5px */
+}
+.control-group.checkbox-group { 
+    flex-direction: row; 
+    align-items: center; 
+    gap: var(--us-spacing-8-s); /* Changed from 10px */
+}
+.control-group label { 
+    font-size: var(--us-font-size-body); /* Approximated 0.9em */
+    color: var(--us-fg-subtext); /* Changed from #ccc */
+}
+.control-group.checkbox-group label { width: auto; }
+
+/* Toggle Switch Styles */
+.toggle-item {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: var(--us-spacing-8-s) 0;
+}
+
+.toggle-label {
+    margin: 0;
+    color: var(--us-fg-subtext);
+    font-size: var(--us-font-size-body);
+    flex: 1;
+}
+
+.toggle-switch {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+}
+
+.toggle-switch input[type="checkbox"] {
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    cursor: pointer;
+    z-index: 1;
+    margin: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--us-bg-mid);
+    border: 1px solid var(--us-border-medium);
+    transition: 0.3s;
+    border-radius: 12px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    top: 3px;
+    background-color: var(--us-fg-default);
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+input[type="checkbox"]:checked + .toggle-slider {
+    background-color: var(--us-accent-high);
+    border-color: var(--us-accent-high);
+}
+
+input[type="checkbox"]:checked + .toggle-slider:before {
+    transform: translateX(20px);
+    background-color: var(--us-fg-inverse);
+}
+
+.control-group input[type="range"] { 
+    width: 100%; 
+    cursor: pointer; 
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    background: var(--us-bg-high); /* Track color using BG-High */
+    border-radius: var(--us-radii-micro-small);
+    outline: none;
+}
+.control-group input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: var(--us-fg-default); /* Handle color using FG-Default */
+    border-radius: 50%;
+    cursor: pointer;
+}
+.control-group input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: var(--us-fg-default); /* Handle color using FG-Default */
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+.control-group input[type="range"]::-moz-range-track {
+    background: var(--us-bg-high); /* Track color using BG-High */
+    height: 6px;
+    border-radius: var(--us-radii-micro-small);
+}
+.control-group input[type="checkbox"] { 
+    cursor: pointer; 
+    width: var(--us-sizing-16-m); /* Changed from 16px */
+    height: var(--us-sizing-16-m); /* Changed from 16px */
+     /* Consider applying tokenized styles if needed */
+}
+.control-group span { 
+    font-size: var(--us-font-size-label); /* Approximated 0.8em */
+    color: var(--us-fg-subtext); /* Changed from #aaa */
+    align-self: flex-end; 
+}
+.canvas-container { 
+    flex-grow: 1; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    padding: var(--us-spacing-20); /* Changed from 20px */
+    overflow: hidden; 
+    background-color: var(--us-bg-canvas); /* Changed from #000 */
+}
+canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+
+}
+/* Styles for buttons */
+button { 
+    padding: var(--us-spacing-8-s) var(--us-spacing-16-m); /* Changed from 8px 15px, using closest */
+    border: 1px solid var(--us-border-hard); /* Changed from #555 */
+    border-radius: var(--us-radii-micro-small); /* Changed from 4px */
+    background-color: var(--us-accent-high); /* Changed from #047857 - using accent color */
+    color: var(--us-fg-inverse); /* Changed from #eee */
+    cursor: pointer; 
+    transition: background-color 0.2s ease; 
+    font-size: var(--us-font-size-body); /* Approximated 0.9em */
+    margin-top: var(--us-spacing-4-xs); /* Changed from 5px */
+}
+button:hover { 
+    /* Define a hover state using tokens, maybe lighten/darken accent? */
+    /* Using a slightly different background for hover for now */
+     background-color: #9b4dff; /* Example derived from --us-accent-high */
+}
+button:disabled { 
+    background-color: var(--us-bg-mid); /* Changed from #444 */
+    color: var(--us-fg-subtext); /* Changed from #888 */
+    cursor: not-allowed; 
+}
+#stopButton { 
+    /* Consider a danger/destructive token if available, using red for now */
+    background-color: #dc2626; 
+}
+ #stopButton:hover:not(:disabled) { 
+    /* Consider a danger/destructive hover token if available */
+    background-color: #f87171; 
+}
+ #recordingStatus { 
+    font-size: var(--us-font-size-body); /* Approximated 0.9em */
+    /* Consider a warning/status token if available, using yellow for now */
+    color: #facc15; 
+    text-align: center; 
+    margin-top: var(--us-spacing-4-xs); /* Changed from 5px */
+    min-height: 1.2em; 
+ } 

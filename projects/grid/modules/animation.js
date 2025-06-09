@@ -1,6 +1,6 @@
 // animation.js - Manages animation loops and sequences
 
-import { END_THRESHOLD_PERCENT, START_ACCELERATION_FACTOR, ACCELERATION_FACTOR, BASE_FREQ, FREQ_AMPLITUDE, FREQ_OSC_FREQ, MIN_FREQ, SIMPLIFY_FACTOR, BG_BRIGHTNESS_THRESHOLD } from './constants.js';
+import { END_THRESHOLD_PERCENT, START_ACCELERATION_FACTOR, ACCELERATION_FACTOR, BASE_FREQ, FREQ_AMPLITUDE, FREQ_OSC_FREQ, MIN_FREQ, SIMPLIFY_FACTOR } from './constants.js';
 import { state, noise3D } from './state.js';
 import { ui } from './ui.js';
 import { drawFrame, drawCell, getBgPixelBrightness } from './canvas.js';
@@ -190,8 +190,8 @@ export function fadeOutAnimate(timestamp) {
         let shouldAnimate = true;
         if (state.animationAreaMode !== 'everywhere' && state.bgImage) {
             const brightness = getBgPixelBrightness(sampleX, sampleY);
-            if (state.animationAreaMode === 'light' && brightness <= BG_BRIGHTNESS_THRESHOLD) shouldAnimate = false;
-            if (state.animationAreaMode === 'dark' && brightness > BG_BRIGHTNESS_THRESHOLD) shouldAnimate = false;
+            if (state.animationAreaMode === 'light' && brightness <= state.brightnessThreshold) shouldAnimate = false;
+            if (state.animationAreaMode === 'dark' && brightness > state.brightnessThreshold) shouldAnimate = false;
         }
         
         if (!shouldAnimate) {

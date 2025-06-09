@@ -1,6 +1,6 @@
 // canvas.js - Manages canvas operations and drawing functions
 
-import { OVERLAP_FIX, BG_BRIGHTNESS_THRESHOLD, DEFAULT_LETTER_COLOR, DEFAULT_LETTER_BG_COLOR, BASE_FREQ, FREQ_AMPLITUDE, FREQ_OSC_FREQ, MIN_FREQ, SIMPLIFY_FACTOR, IMAGE_VS_LETTER_PROBABILITY } from './constants.js';
+import { OVERLAP_FIX, DEFAULT_LETTER_COLOR, DEFAULT_LETTER_BG_COLOR, BASE_FREQ, FREQ_AMPLITUDE, FREQ_OSC_FREQ, MIN_FREQ, SIMPLIFY_FACTOR, IMAGE_VS_LETTER_PROBABILITY } from './constants.js';
 import { state, noise3D } from './state.js';
 import { ui } from './ui.js';
 
@@ -145,8 +145,8 @@ export function drawFrame(currentNoiseThreshold) {
             let shouldAnimate = true;
             if (state.animationAreaMode !== 'everywhere' && state.bgImage) {
                 const brightness = getBgPixelBrightness(sampleX, sampleY);
-                if (state.animationAreaMode === 'light' && brightness <= BG_BRIGHTNESS_THRESHOLD) shouldAnimate = false;
-                if (state.animationAreaMode === 'dark' && brightness > BG_BRIGHTNESS_THRESHOLD) shouldAnimate = false;
+                if (state.animationAreaMode === 'light' && brightness <= state.brightnessThreshold) shouldAnimate = false;
+                if (state.animationAreaMode === 'dark' && brightness > state.brightnessThreshold) shouldAnimate = false;
             }
             if (!shouldAnimate) continue;
 

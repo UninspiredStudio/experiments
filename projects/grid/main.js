@@ -3,7 +3,7 @@ import { ui, initializeUIListeners, applyInitialUIValues, setDependencies } from
 import { initializeCanvas, updateGridParams } from './modules/canvas.js';
 import { startBackgroundAnimation, setCompleteSequenceFunction, startIntroAnimation, animate, stopAllAnimations } from './modules/animation.js';
 import { completeSequence, setAnimationFunctions, handleStartSequence, handleRestart, handleStartRecording, handleStopRecording } from './modules/recording.js';
-import { handleBgUpload, handleCellImgUpload, setUpdateGridParamsFunction } from './modules/imageHandling.js';
+import { handleBgUpload, handleCellImgUpload, setUpdateGridParamsFunction, loadDefaultImages, initializeDeleteListeners } from './modules/imageHandling.js';
 
 /**
  * Initialize the application
@@ -33,9 +33,13 @@ function initialize() {
     
     // Set up event listeners
     initializeUIListeners();
+    initializeDeleteListeners();
     
     // Apply initial UI values
     applyInitialUIValues();
+    
+    // Load default images
+    loadDefaultImages();
     
     // Start background animation
     startBackgroundAnimation();

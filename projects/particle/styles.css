@@ -59,6 +59,20 @@ canvas.replaying {
     background-color: color-mix(in srgb, var(--us-accent-high) 80%, black); /* Darken accent */
 }
 
+.replace-btn {
+    background-color: #2563eb; /* Blue color for replace action */
+    color: var(--us-fg-inverse); /* Use token inverse text color */
+    border: none; /* Remove default border */
+    padding: var(--us-spacing-2) var(--us-spacing-8-s); /* Use token spacing */
+    font-size: var(--us-font-size-label); /* Use token font size */
+    border-radius: var(--us-radii-micro-small); /* Use token radius */
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+.replace-btn:hover {
+    background-color: #1d4ed8; /* Darker blue on hover */
+}
+
 /* Custom scrollbar for image list */
 .image-list-container::-webkit-scrollbar { width: var(--us-sizing-8-s); } /* Use token sizing */
 .image-list-container::-webkit-scrollbar-track { background: var(--us-bg-low); border-radius: var(--us-radii-micro-small); } /* Use token bg and radius */
@@ -465,3 +479,53 @@ label, .label {
 .sidebar-section:last-child {
     padding-bottom: var(--us-spacing-16-m); /* Add small padding at bottom */
 } 
+
+/* Segmented tab styles */
+.segmented-tab {
+    display: flex;
+    background-color: var(--us-bg-mid);
+    border-radius: var(--us-radii-micro-small);
+    padding: var(--us-spacing-2);
+    gap: var(--us-spacing-2);
+    border: 1px solid var(--us-border-medium);
+}
+
+.segmented-tab label {
+    flex: 1;
+    text-align: center;
+    padding: var(--us-spacing-4-xs) var(--us-spacing-8-s);
+    font-size: var(--us-font-size-label);
+    font-weight: var(--us-font-weight-regular);
+    color: var(--us-fg-subtext);
+    background-color: transparent;
+    border-radius: var(--us-radii-micro-small);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+    margin: 0;
+}
+
+.segmented-tab input[type="radio"] {
+    display: none;
+}
+
+.segmented-tab input[type="radio"]:checked + label {
+    background-color: var(--us-bg-canvas);
+    color: var(--us-fg-default);
+    font-weight: var(--us-font-weight-bold);
+    border-color: var(--us-border-hard);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.segmented-tab label:hover {
+    color: var(--us-fg-default);
+}
+
+/* Character settings expansion styles */
+.character-settings-expanded {
+}
+
+.character-settings-expanded .label {
+    margin-bottom: var(--us-spacing-4-xs);
+    display: block;
+}

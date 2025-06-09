@@ -15,18 +15,30 @@ export const ui = {
     speedControl: document.getElementById('speedControl'),
     gridAmountControl: document.getElementById('gridAmountControl'),
     fillControl: document.getElementById('fillControl'),
-    simplifyControl: document.getElementById('simplifyControl'),
+    brightnessThresholdControl: document.getElementById('brightnessThresholdControl'),
+    
+    // Segmented controls
+    simplifyPatternRadios: document.querySelectorAll('input[name="simplifyPattern"]'),
+    animAreaRadios: document.querySelectorAll('input[name="animArea"]'),
+    overallLengthRadios: document.querySelectorAll('input[name="overallLength"]'),
+    fadeInRadios: document.querySelectorAll('input[name="fadeIn"]'),
+    fadeOutRadios: document.querySelectorAll('input[name="fadeOut"]'),
+    
+    // Toggle switches
+    startAnimationToggle: document.getElementById('startAnimationToggle'),
+    endAnimationToggle: document.getElementById('endAnimationToggle'),
+    
+    // File uploads
     bgUploadInput: document.getElementById('bgUpload'),
     cellImgUploadInput: document.getElementById('cellImgUpload'),
-    animAreaRadios: document.querySelectorAll('input[name="animArea"]'),
+    
+    // Action buttons
     startButton: document.getElementById('startButton'),
-    overallDurationInput: document.getElementById('overallDurationInput'),
-    startAnimationControl: document.getElementById('startAnimationControl'),
-    startDurationInput: document.getElementById('startDurationInput'),
-    endAnimationControl: document.getElementById('endAnimationControl'),
-    endDurationInput: document.getElementById('endDurationInput'),
+    restartButton: document.getElementById('restartButton'),
     startRecordButton: document.getElementById('startRecordButton'),
     stopRecordButton: document.getElementById('stopRecordButton'),
+    
+    // Letter controls
     letterInput: document.getElementById('letterInput'),
     letterColorInput: document.getElementById('letterColorInput'),
     letterBgColorInput: document.getElementById('letterBgColorInput')
@@ -74,37 +86,52 @@ export function updateFillPercentage(event) {
 }
 
 export function updateSimplify() {
-    state.isSimplified = ui.simplifyControl.checked;
+    const selectedValue = document.querySelector('input[name="simplifyPattern"]:checked').value;
+    state.isSimplified = selectedValue === 'simple';
 }
 
 export function updateAnimationAreaMode() {
     state.animationAreaMode = document.querySelector('input[name="animArea"]:checked').value;
+    updateBrightnessThresholdVisibility();
+}
+
+function updateBrightnessThresholdVisibility() {
+    const brightnessThresholdContainer = ui.brightnessThresholdControl.closest('.control-item');
+    if (state.animationAreaMode === 'everywhere') {
+        brightnessThresholdContainer.style.display = 'none';
+    } else {
+        brightnessThresholdContainer.style.display = 'flex';
+    }
+}
+
+export function updateBrightnessThreshold(event) {
+    // Basic slider provides value between 0 and 1 in event.detail.value
+    // Map normalized value (0-1) to the brightness threshold range (0 to 255)
+    state.brightnessThreshold = Math.round(event.detail.value * 255);
+    // No need to update span, basic-slider handles it internally
+}
+
+export function updateOverallLength() {
+    const selectedValue = document.querySelector('input[name="overallLength"]:checked').value;
+    state.overallDuration = parseFloat(selectedValue);
+}
+
+export function updateFadeIn() {
+    const selectedValue = document.querySelector('input[name="fadeIn"]:checked').value;
+    state.startAnimationDuration = parseFloat(selectedValue);
+}
+
+export function updateFadeOut() {
+    const selectedValue = document.querySelector('input[name="fadeOut"]:checked').value;
+    state.endAnimationDuration = parseFloat(selectedValue);
 }
 
 export function updateStartAnimationEnabled() {
-    state.startAnimationEnabled = ui.startAnimationControl.checked;
+    state.startAnimationEnabled = ui.startAnimationToggle.checked;
 }
 
 export function updateEndAnimationEnabled() {
-    state.endAnimationEnabled = ui.endAnimationControl.checked;
-}
-
-export function updateStartAnimationDuration() {
-    state.startAnimationDuration = parseFloat(ui.startDurationInput.value) || 0.1;
-    if (state.startAnimationDuration <= 0) state.startAnimationDuration = 0.1;
-    ui.startDurationInput.value = state.startAnimationDuration.toFixed(1);
-}
-
-export function updateEndAnimationDuration() {
-    state.endAnimationDuration = parseFloat(ui.endDurationInput.value) || 0.1;
-    if (state.endAnimationDuration <= 0) state.endAnimationDuration = 0.1;
-    ui.endDurationInput.value = state.endAnimationDuration.toFixed(1);
-}
-
-export function updateOverallDuration() {
-    state.overallDuration = parseFloat(ui.overallDurationInput.value) || 0.1;
-    if (state.overallDuration <= 0) state.overallDuration = 0.1;
-    ui.overallDurationInput.value = state.overallDuration.toFixed(1);
+    state.endAnimationEnabled = ui.endAnimationToggle.checked;
 }
 
 export function updateCurrentLetters() {
@@ -124,14 +151,29 @@ export function initializeUIListeners() {
     ui.speedControl.addEventListener('change', updateSpeed);
     ui.gridAmountControl.addEventListener('change', updateGridParamsFn);
     ui.fillControl.addEventListener('change', updateFillPercentage);
-    ui.simplifyControl.addEventListener('change', updateSimplify);
+    ui.brightnessThresholdControl.addEventListener('change', updateBrightnessThreshold);
+    
+    // Segmented controls
+    ui.simplifyPatternRadios.forEach(radio => radio.addEventListener('change', updateSimplify));
+    ui.animAreaRadios.forEach(radio => radio.addEventListener('change', updateAnimationAreaMode));
+    ui.overallLengthRadios.forEach(radio => radio.addEventListener('change', updateOverallLength));
+    ui.fadeInRadios.forEach(radio => radio.addEventListener('change', updateFadeIn));
+    ui.fadeOutRadios.forEach(radio => radio.addEventListener('change', updateFadeOut));
+    
+    // Toggle switches
+    ui.startAnimationToggle.addEventListener('change', updateStartAnimationEnabled);
+    ui.endAnimationToggle.addEventListener('change', updateEndAnimationEnabled);
+    
+    // File uploads
     ui.bgUploadInput.addEventListener('change', handleBgUploadFn);
     ui.cellImgUploadInput.addEventListener('change', handleCellImgUploadFn);
-    ui.animAreaRadios.forEach(radio => radio.addEventListener('change', updateAnimationAreaMode));
+    
+    // Letter controls
     ui.letterInput.addEventListener('input', updateCurrentLetters);
     ui.letterColorInput.addEventListener('input', updateLetterColor);
     ui.letterBgColorInput.addEventListener('input', updateLetterBgColor);
 
+    // Action buttons
     ui.startButton.addEventListener('click', () => {
         if (state.isSequenceActive()) {
             handleRestartFn();
@@ -140,11 +182,7 @@ export function initializeUIListeners() {
         }
     });
 
-    ui.overallDurationInput.addEventListener('change', updateOverallDuration);
-    ui.startAnimationControl.addEventListener('change', updateStartAnimationEnabled);
-    ui.startDurationInput.addEventListener('change', updateStartAnimationDuration);
-    ui.endAnimationControl.addEventListener('change', updateEndAnimationEnabled);
-    ui.endDurationInput.addEventListener('change', updateEndAnimationDuration);
+    ui.restartButton.addEventListener('click', handleRestartFn);
     ui.startRecordButton.addEventListener('click', () => handleStartRecordingFn(false));
     ui.stopRecordButton.addEventListener('click', () => handleStopRecordingFn(true));
 }
@@ -152,31 +190,34 @@ export function initializeUIListeners() {
 // Apply initial UI states
 export function applyInitialUIValues() {
     // Set initial normalized values directly on the component attributes
-    // These were calculated from the original HTML:
-    // Speed: 5 => (5-1)/(20-1) ≈ 0.2105
-    // Grid: 30 => (30-10)/(200-10) ≈ 0.1053
+    // These were calculated from the desired values:
+    // Speed: 8 => (8-1)/(20-1) ≈ 0.3684
+    // Grid: 50 => (50-10)/(200-10) ≈ 0.2105
     // Fill: 50 => (50-0)/(100-0) = 0.5
-    ui.speedControl.setAttribute('value', '0.2105');
-    ui.gridAmountControl.setAttribute('value', '0.1053');
+    ui.speedControl.setAttribute('value', '0.3684');
+    ui.gridAmountControl.setAttribute('value', '0.2105');
     ui.fillControl.setAttribute('value', '0.5');
+    ui.brightnessThresholdControl.setAttribute('value', '0.5020'); // Default 128/255 ≈ 0.5020
 
     // Call other update functions that don't depend on the now-removed spans
     // updateGridParamsFn needs to be called to initialize based on the new attribute
     updateGridParamsFn(); // Call it without event to read initial attribute
     updateSimplify();
-    updateAnimationAreaMode();
-    updateOverallDuration();
+    updateAnimationAreaMode(); // This will also call updateBrightnessThresholdVisibility()
+    updateBrightnessThreshold({ detail: { value: 0.5020 } }); // Initialize with default value (128/255)
+    updateOverallLength();
+    updateFadeIn();
+    updateFadeOut();
     updateStartAnimationEnabled();
-    updateStartAnimationDuration();
     updateEndAnimationEnabled();
-    updateEndAnimationDuration();
     updateCurrentLetters();
     updateLetterColor();
     updateLetterBgColor();
 
-    ui.startButton.textContent = "Start Sequence & Record";
+    ui.startButton.textContent = "Record";
     ui.startButton.classList.remove('stop-mode');
     ui.startButton.disabled = false;
+    ui.restartButton.disabled = false;
     ui.startRecordButton.disabled = false;
     ui.stopRecordButton.disabled = true;
     ui.stopRecordButton.style.display = 'none';

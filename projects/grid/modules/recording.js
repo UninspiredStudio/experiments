@@ -24,7 +24,7 @@ export function completeSequence() {
         handleStopRecording(false);
     }
     
-    ui.startButton.textContent = "Start Sequence & Record";
+    ui.startButton.textContent = "Record";
     ui.startButton.classList.remove('stop-mode');
     ui.startButton.disabled = false;
     
@@ -46,7 +46,7 @@ export function handleStartSequence() {
     state.assignedCellData.clear();
     handleStartRecording(true);
     
-    ui.startButton.textContent = "Stop Sequence & Recording";
+    ui.startButton.textContent = "Stop Recording";
     ui.startButton.classList.add('stop-mode');
     ui.startButton.disabled = false;
     ui.startRecordButton.disabled = true;
@@ -84,7 +84,7 @@ export function handleRestart() {
     state.assignedCellData.clear();
     state.time = 0;
     
-    ui.startButton.textContent = "Start Sequence & Record";
+    ui.startButton.textContent = "Record";
     ui.startButton.classList.remove('stop-mode');
     ui.startButton.disabled = false;
     

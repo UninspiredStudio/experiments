@@ -31,7 +31,8 @@ export const state = {
     bgPixelDataWidth: 0,
     
     // Animation area
-    animationAreaMode: 'everywhere',
+    animationAreaMode: 'dark',
+    brightnessThreshold: 128, // Configurable brightness threshold for light/dark detection
     
     // Letter cell state
     currentLetters: '',
