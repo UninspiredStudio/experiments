@@ -8,6 +8,8 @@ const tornEdgeCheckbox = document.getElementById('tornEdgeCheckbox');
 const startButton = document.getElementById('startButton');
 const stopButton = document.getElementById('stopButton');
 const recordingStatus = document.getElementById('recordingStatus');
+const freezeSlicesCheckbox = document.getElementById('freezeSlicesCheckbox');
+const randomizeButton = document.getElementById('randomizeButton');
 
 // --- Off-screen Canvas ---
 const elementPrepCanvas = document.createElement('canvas');
@@ -63,6 +65,11 @@ let isOptimizedRecording = false;
 // --- Custom Background State ---
 let exportBackgroundColor = '#00ff00'; // Default green screen
 let useTransparentBackground = false;
+
+// --- Freeze Slices State ---
+let freezeSlicesMode = false;
+let frozenHorizontalSlices = [];
+let frozenVerticalSlices = [];
 
 // --- Initialize State from HTML ---
 // Wait for basic-slider components to load, then initialize values
@@ -226,22 +233,46 @@ scrollSpeedSlider2.addEventListener('change', function(e) {
     scrollSpeed2 = e.detail.displayValue; 
 });
 sliceGapSlider.addEventListener('change', function(e) { 
-    sliceGapBase = Math.round(e.detail.displayValue); 
+    sliceGapBase = Math.round(e.detail.displayValue);
+    // Regenerate frozen slices if freeze mode is enabled
+    if (freezeSlicesMode) {
+        generateFrozenSlices();
+    }
 });
 gapVariabilitySlider.addEventListener('change', function(e) { 
-    gapVariability = e.detail.displayValue; 
+    gapVariability = e.detail.displayValue;
+    // Regenerate frozen slices if freeze mode is enabled
+    if (freezeSlicesMode) {
+        generateFrozenSlices();
+    }
 });
 rotationSlider.addEventListener('change', function(e) { 
-    maxRotation = Math.round(e.detail.displayValue); 
+    maxRotation = Math.round(e.detail.displayValue);
+    // Regenerate frozen slices if freeze mode is enabled
+    if (freezeSlicesMode) {
+        generateFrozenSlices();
+    }
 });
 vDisplacementSlider.addEventListener('change', function(e) { 
-    vDisplacementMax = Math.round(e.detail.displayValue); 
+    vDisplacementMax = Math.round(e.detail.displayValue);
+    // Regenerate frozen slices if freeze mode is enabled
+    if (freezeSlicesMode) {
+        generateFrozenSlices();
+    }
 });
 lineGapSlider.addEventListener('change', function(e) { 
-    lineGapBase = Math.round(e.detail.displayValue); 
+    lineGapBase = Math.round(e.detail.displayValue);
+    // Regenerate frozen slices if freeze mode is enabled
+    if (freezeSlicesMode) {
+        generateFrozenSlices();
+    }
 });
 lineGapVariabilitySlider.addEventListener('change', function(e) { 
-    lineGapVariability = e.detail.displayValue; 
+    lineGapVariability = e.detail.displayValue;
+    // Regenerate frozen slices if freeze mode is enabled
+    if (freezeSlicesMode) {
+        generateFrozenSlices();
+    }
 });
 speedSlider.addEventListener('change', function(e) { 
     targetFps = Math.round(e.detail.displayValue); 
@@ -251,20 +282,55 @@ speedSlider.addEventListener('change', function(e) {
     } 
 });
 lineProbSlider.addEventListener('change', function(e) { 
-    lineProbability = e.detail.displayValue; 
+    lineProbability = e.detail.displayValue;
+    // Regenerate frozen slices if freeze mode is enabled
+    if (freezeSlicesMode) {
+        generateFrozenSlices();
+    }
 });
 blockProbSlider.addEventListener('change', function(e) { 
-    blockProbability = e.detail.displayValue; 
+    blockProbability = e.detail.displayValue;
+    // Regenerate frozen slices if freeze mode is enabled
+    if (freezeSlicesMode) {
+        generateFrozenSlices();
+    }
 });
 displacementSlider.addEventListener('change', function(e) { 
-    displacementMax = Math.round(e.detail.displayValue); 
+    displacementMax = Math.round(e.detail.displayValue);
+    // Regenerate frozen slices if freeze mode is enabled
+    if (freezeSlicesMode) {
+        generateFrozenSlices();
+    }
 });
 maxBlockHeightSlider.addEventListener('change', function(e) { 
-    maxBlockHeight = Math.round(e.detail.displayValue); 
+    maxBlockHeight = Math.round(e.detail.displayValue);
+    // Regenerate frozen slices if freeze mode is enabled
+    if (freezeSlicesMode) {
+        generateFrozenSlices();
+    }
 });
 maxLineWidthSlider.addEventListener('change', function(e) { 
-    maxLineWidth = Math.round(e.detail.displayValue); 
+    maxLineWidth = Math.round(e.detail.displayValue);
+    // Regenerate frozen slices if freeze mode is enabled
+    if (freezeSlicesMode) {
+        generateFrozenSlices();
+    }
 });
+
+// Event listener for freeze slices toggle
+freezeSlicesCheckbox.onchange = function() {
+    freezeSlicesMode = this.checked;
+    if (freezeSlicesMode) {
+        // Capture current slice configuration
+        generateFrozenSlices();
+        console.log('Slices frozen with', frozenHorizontalSlices.length, 'horizontal slices and', frozenVerticalSlices.length, 'vertical slices');
+    } else {
+        // Clear frozen slices to return to random generation
+        frozenHorizontalSlices = [];
+        frozenVerticalSlices = [];
+        console.log('Slices unfrozen - returning to random generation');
+    }
+};
 
 // Event listeners for background color controls
 backgroundColorPicker.addEventListener('change', function(e) {
@@ -291,6 +357,13 @@ function robustModulo(value, modulus) {
   if (modulus === 0 || !isFinite(modulus)) return 0;
   modulus = Math.abs(modulus);
   return ((value % modulus) + modulus) % modulus;
+}
+
+// --- Seeded Random Function for consistent slice effects ---
+function seededRandom(seed) {
+  // Simple seeded random number generator for consistent results
+  const x = Math.sin(seed * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
 }
 
 // --- Helper Function to Create Jagged Path ---
@@ -363,6 +436,71 @@ function drawTiledImageSection(targetCtx, sourceImg, sx, sy, sw, sh, dx, dy, dw,
   targetCtx.restore();
 }
 
+// --- Generate Frozen Slices Function ---
+function generateFrozenSlices() {
+    frozenHorizontalSlices = [];
+    frozenVerticalSlices = [];
+    
+    // Generate frozen horizontal slices with current settings
+    let currentY = 0;
+    while (currentY < drawHeight) {
+        const currentMaxSliceHeight = Math.max(minBlockHeight, maxBlockHeight);
+        let sliceHeight = Math.random() * (currentMaxSliceHeight - minBlockHeight) + minBlockHeight;
+        let effectiveSliceHeight = Math.min(sliceHeight, drawHeight - currentY);
+        
+        let gapSize = sliceGapBase;
+        if (gapVariability > 0 && Math.abs(sliceGapBase) > 0) {
+            gapSize += (Math.random() - 0.5) * 2 * Math.abs(sliceGapBase) * gapVariability;
+        }
+        
+        if (Math.random() < blockProbability && effectiveSliceHeight >= 1) {
+            const sourceImageChoice = loadedImage1 && loadedImage2 ? (Math.random() < 0.5 ? 1 : 2) : (loadedImage1 ? 1 : 2);
+            const displacementX = Math.floor((Math.random() - 0.5) * 2 * displacementMax);
+            const angle = (Math.random() - 0.5) * 2 * maxRotation;
+            
+            frozenHorizontalSlices.push({
+                y: currentY,
+                height: effectiveSliceHeight,
+                sourceImage: sourceImageChoice,
+                displacementX: displacementX,
+                angle: angle,
+                gapSize: gapSize
+            });
+        }
+        
+        currentY += Math.max(1, effectiveSliceHeight + gapSize);
+    }
+    
+    // Generate frozen vertical slices with current settings
+    let currentX = 0;
+    while (currentX < drawWidth) {
+        const lineWidth = Math.random() * maxLineWidth + 1;
+        const effectiveLineWidth = Math.min(lineWidth, drawWidth - currentX);
+        
+        let gapSize = lineGapBase;
+        if (lineGapVariability > 0 && Math.abs(lineGapBase) > 0) {
+            gapSize += (Math.random() - 0.5) * 2 * Math.abs(lineGapBase) * lineGapVariability;
+        }
+        
+        if (Math.random() < lineProbability && effectiveLineWidth >= 1) {
+            const sourceImageChoice = loadedImage1 && loadedImage2 ? (Math.random() < 0.5 ? 1 : 2) : (loadedImage1 ? 1 : 2);
+            const displacementY = Math.floor((Math.random() - 0.5) * 2 * vDisplacementMax);
+            const angle = (Math.random() - 0.5) * 2 * maxRotation;
+            
+            frozenVerticalSlices.push({
+                x: currentX,
+                width: effectiveLineWidth,
+                sourceImage: sourceImageChoice,
+                displacementY: displacementY,
+                angle: angle,
+                gapSize: gapSize
+            });
+        }
+        
+        currentX += Math.max(1, effectiveLineWidth + gapSize);
+    }
+}
+
 // --- Glitch Drawing Function ---
 function drawGlitchFrame() {
   // Clear canvas and apply background
@@ -381,108 +519,200 @@ function drawGlitchFrame() {
     ctx.fillText("Load an image (or two) to begin", canvasWidth / 2, canvasHeight / 2);
     return;
   }
-  let currentY = 0;
-  while (currentY < drawHeight) {
-    const currentMaxSliceHeight = Math.max(minBlockHeight, maxBlockHeight);
-    let sliceHeight = Math.random() * (currentMaxSliceHeight - minBlockHeight) + minBlockHeight;
-    let effectiveSliceHeight = Math.min(sliceHeight, drawHeight - currentY);
-    let gapSize = sliceGapBase;
-    if (gapVariability > 0 && Math.abs(sliceGapBase) > 0) {
-      gapSize += (Math.random() - 0.5) * 2 * Math.abs(sliceGapBase) * gapVariability;
-    }
-    if (Math.random() < blockProbability && effectiveSliceHeight >= 1) {
-      let sourceImage = loadedImage1 && loadedImage2 ? (Math.random() < 0.5 ? loadedImage1 : loadedImage2) : (loadedImage1 || loadedImage2);
+  // Draw horizontal slices - use frozen slices if freeze mode is enabled
+  if (freezeSlicesMode && frozenHorizontalSlices.length > 0) {
+    // Use frozen slices with their stored settings
+    for (const slice of frozenHorizontalSlices) {
+      const sourceImage = slice.sourceImage === 1 ? loadedImage1 : loadedImage2;
       if (!sourceImage || sourceImage.height <= 0 || sourceImage.width <= 0) continue;
-      const displacementX = Math.floor((Math.random() - 0.5) * 2 * displacementMax);
-      const destX_final = drawX + displacementX;
-      const destY_final = drawY + currentY;
+      
+      const destX_final = drawX + slice.displacementX;
+      const destY_final = drawY + slice.y;
       const destX_center = destX_final + drawWidth / 2;
-      const destY_center = destY_final + effectiveSliceHeight / 2;
+      const destY_center = destY_final + slice.height / 2;
       const vScrollOffset = (sourceImage === loadedImage1) ? scrollYOffset1 : scrollYOffset2;
       const hScrollOffset = (sourceImage === loadedImage1) ? scrollXOffset1 : scrollXOffset2;
-      const baseSourceY = (currentY / drawHeight) * sourceImage.height;
+      const baseSourceY = (slice.y / drawHeight) * sourceImage.height;
       const scrolledSourceY = baseSourceY + vScrollOffset;
       const finalSourceX = hScrollOffset;
       const finalSourceY = scrolledSourceY;
-      const sourceImageSliceHeight = (effectiveSliceHeight / drawHeight) * sourceImage.height;
+      const sourceImageSliceHeight = (slice.height / drawHeight) * sourceImage.height;
       const sourceImageSliceWidth = sourceImage.width;
+      
       if (sourceImageSliceHeight > 0 && isFinite(finalSourceY) && isFinite(finalSourceX) && isFinite(sourceImageSliceWidth)) {
         elementPrepCanvas.width = drawWidth;
-        elementPrepCanvas.height = effectiveSliceHeight;
-        drawTiledImageSection(elementPrepCtx, sourceImage, finalSourceX, finalSourceY, sourceImageSliceWidth, sourceImageSliceHeight, 0, 0, drawWidth, effectiveSliceHeight);
+        elementPrepCanvas.height = slice.height;
+        drawTiledImageSection(elementPrepCtx, sourceImage, finalSourceX, finalSourceY, sourceImageSliceWidth, sourceImageSliceHeight, 0, 0, drawWidth, slice.height);
       } else {
         continue;
       }
+      
       ctx.save();
-      const angle = (Math.random() - 0.5) * 2 * maxRotation;
-      const applyRotation = Math.abs(angle) > 0.1 && maxRotation > 0;
+      const applyRotation = Math.abs(slice.angle) > 0.1 && maxRotation > 0;
       if (applyRotation) {
-        const radAngle = angle * (Math.PI / 180);
+        const radAngle = slice.angle * (Math.PI / 180);
         ctx.translate(destX_center, destY_center);
         ctx.rotate(radAngle);
         ctx.translate(-destX_center, -destY_center);
       }
       if (tornEdgeMode) {
-        createJaggedPath(ctx, destX_final, destY_final, drawWidth, effectiveSliceHeight, jaggednessAmplitude, jaggednessFrequency);
+        createJaggedPath(ctx, destX_final, destY_final, drawWidth, slice.height, jaggednessAmplitude, jaggednessFrequency);
         ctx.clip();
       }
       ctx.drawImage(elementPrepCanvas, destX_final, destY_final);
       ctx.restore();
     }
-    currentY += Math.max(1, effectiveSliceHeight + gapSize);
-  }
-  let currentX = 0;
-  while (currentX < drawWidth) {
-    const lineWidth = Math.random() * maxLineWidth + 1;
-    const effectiveLineWidth = Math.min(lineWidth, drawWidth - currentX);
-    let gapSize = lineGapBase;
-    if (lineGapVariability > 0 && Math.abs(lineGapBase) > 0) {
-      gapSize += (Math.random() - 0.5) * 2 * Math.abs(lineGapBase) * lineGapVariability;
-    }
-    if (Math.random() < lineProbability && effectiveLineWidth >= 1) {
-      let sourceImage = loadedImage1 && loadedImage2 ? (Math.random() < 0.5 ? loadedImage1 : loadedImage2) : (loadedImage1 || loadedImage2);
-      if (!sourceImage || sourceImage.height <= 0 || sourceImage.width <= 0) {
-        currentX += Math.max(1, effectiveLineWidth + gapSize);
-        continue;
+  } else {
+    // Use original random generation
+    let currentY = 0;
+    while (currentY < drawHeight) {
+      const currentMaxSliceHeight = Math.max(minBlockHeight, maxBlockHeight);
+      let sliceHeight = Math.random() * (currentMaxSliceHeight - minBlockHeight) + minBlockHeight;
+      let effectiveSliceHeight = Math.min(sliceHeight, drawHeight - currentY);
+      let gapSize = sliceGapBase;
+      if (gapVariability > 0 && Math.abs(sliceGapBase) > 0) {
+        gapSize += (Math.random() - 0.5) * 2 * Math.abs(sliceGapBase) * gapVariability;
       }
-      const displacementY = Math.floor((Math.random() - 0.5) * 2 * vDisplacementMax);
-      const destX_final = drawX + currentX;
-      const destY_final = drawY + displacementY;
-      const destX_center = destX_final + effectiveLineWidth / 2;
+      if (Math.random() < blockProbability && effectiveSliceHeight >= 1) {
+        let sourceImage = loadedImage1 && loadedImage2 ? (Math.random() < 0.5 ? loadedImage1 : loadedImage2) : (loadedImage1 || loadedImage2);
+        if (!sourceImage || sourceImage.height <= 0 || sourceImage.width <= 0) continue;
+        const displacementX = Math.floor((Math.random() - 0.5) * 2 * displacementMax);
+        const destX_final = drawX + displacementX;
+        const destY_final = drawY + currentY;
+        const destX_center = destX_final + drawWidth / 2;
+        const destY_center = destY_final + effectiveSliceHeight / 2;
+        const vScrollOffset = (sourceImage === loadedImage1) ? scrollYOffset1 : scrollYOffset2;
+        const hScrollOffset = (sourceImage === loadedImage1) ? scrollXOffset1 : scrollXOffset2;
+        const baseSourceY = (currentY / drawHeight) * sourceImage.height;
+        const scrolledSourceY = baseSourceY + vScrollOffset;
+        const finalSourceX = hScrollOffset;
+        const finalSourceY = scrolledSourceY;
+        const sourceImageSliceHeight = (effectiveSliceHeight / drawHeight) * sourceImage.height;
+        const sourceImageSliceWidth = sourceImage.width;
+        if (sourceImageSliceHeight > 0 && isFinite(finalSourceY) && isFinite(finalSourceX) && isFinite(sourceImageSliceWidth)) {
+          elementPrepCanvas.width = drawWidth;
+          elementPrepCanvas.height = effectiveSliceHeight;
+          drawTiledImageSection(elementPrepCtx, sourceImage, finalSourceX, finalSourceY, sourceImageSliceWidth, sourceImageSliceHeight, 0, 0, drawWidth, effectiveSliceHeight);
+        } else {
+          continue;
+        }
+        ctx.save();
+        const angle = (Math.random() - 0.5) * 2 * maxRotation;
+        const applyRotation = Math.abs(angle) > 0.1 && maxRotation > 0;
+        if (applyRotation) {
+          const radAngle = angle * (Math.PI / 180);
+          ctx.translate(destX_center, destY_center);
+          ctx.rotate(radAngle);
+          ctx.translate(-destX_center, -destY_center);
+        }
+        if (tornEdgeMode) {
+          createJaggedPath(ctx, destX_final, destY_final, drawWidth, effectiveSliceHeight, jaggednessAmplitude, jaggednessFrequency);
+          ctx.clip();
+        }
+        ctx.drawImage(elementPrepCanvas, destX_final, destY_final);
+        ctx.restore();
+      }
+      currentY += Math.max(1, effectiveSliceHeight + gapSize);
+    }
+  }
+  // Draw vertical slices - use frozen slices if freeze mode is enabled
+  if (freezeSlicesMode && frozenVerticalSlices.length > 0) {
+    // Use frozen slices with their stored settings
+    for (const slice of frozenVerticalSlices) {
+      const sourceImage = slice.sourceImage === 1 ? loadedImage1 : loadedImage2;
+      if (!sourceImage || sourceImage.height <= 0 || sourceImage.width <= 0) continue;
+      
+      const destX_final = drawX + slice.x;
+      const destY_final = drawY + slice.displacementY;
+      const destX_center = destX_final + slice.width / 2;
       const destY_center = destY_final + drawHeight / 2;
       const vScrollOffset = (sourceImage === loadedImage1) ? scrollYOffset1 : scrollYOffset2;
       const hScrollOffset = (sourceImage === loadedImage1) ? scrollXOffset1 : scrollXOffset2;
-      const baseSourceX = (currentX / drawWidth) * sourceImage.width;
+      const baseSourceX = (slice.x / drawWidth) * sourceImage.width;
       const scrolledSourceX = baseSourceX + hScrollOffset;
       const finalSourceX = scrolledSourceX;
       const finalSourceY = vScrollOffset;
-      const sourceImageLineWidth = (effectiveLineWidth / drawWidth) * sourceImage.width;
+      const sourceImageLineWidth = (slice.width / drawWidth) * sourceImage.width;
       const sourceImageLineHeight = sourceImage.height;
+      
       if (sourceImageLineWidth > 0 && isFinite(finalSourceY) && isFinite(finalSourceX) && isFinite(sourceImageLineHeight)) {
-        elementPrepCanvas.width = effectiveLineWidth;
+        elementPrepCanvas.width = slice.width;
         elementPrepCanvas.height = drawHeight;
-        drawTiledImageSection(elementPrepCtx, sourceImage, finalSourceX, finalSourceY, sourceImageLineWidth, sourceImageLineHeight, 0, 0, effectiveLineWidth, drawHeight);
+        drawTiledImageSection(elementPrepCtx, sourceImage, finalSourceX, finalSourceY, sourceImageLineWidth, sourceImageLineHeight, 0, 0, slice.width, drawHeight);
       } else {
-        currentX += Math.max(1, effectiveLineWidth + gapSize);
         continue;
       }
+      
       ctx.save();
-      const angle = (Math.random() - 0.5) * 2 * maxRotation;
-      const applyRotation = Math.abs(angle) > 0.1 && maxRotation > 0;
+      const applyRotation = Math.abs(slice.angle) > 0.1 && maxRotation > 0;
       if (applyRotation) {
-        const radAngle = angle * (Math.PI / 180);
+        const radAngle = slice.angle * (Math.PI / 180);
         ctx.translate(destX_center, destY_center);
         ctx.rotate(radAngle);
         ctx.translate(-destX_center, -destY_center);
       }
       if (tornEdgeMode) {
-        createJaggedPath(ctx, destX_final, destY_final, effectiveLineWidth, drawHeight, jaggednessAmplitude, jaggednessFrequency);
+        createJaggedPath(ctx, destX_final, destY_final, slice.width, drawHeight, jaggednessAmplitude, jaggednessFrequency);
         ctx.clip();
       }
       ctx.drawImage(elementPrepCanvas, destX_final, destY_final);
       ctx.restore();
     }
-    currentX += Math.max(1, effectiveLineWidth + gapSize);
+  } else {
+    // Use original random generation
+    let currentX = 0;
+    while (currentX < drawWidth) {
+      const lineWidth = Math.random() * maxLineWidth + 1;
+      const effectiveLineWidth = Math.min(lineWidth, drawWidth - currentX);
+      let gapSize = lineGapBase;
+      if (lineGapVariability > 0 && Math.abs(lineGapBase) > 0) {
+        gapSize += (Math.random() - 0.5) * 2 * Math.abs(lineGapBase) * lineGapVariability;
+      }
+      if (Math.random() < lineProbability && effectiveLineWidth >= 1) {
+        let sourceImage = loadedImage1 && loadedImage2 ? (Math.random() < 0.5 ? loadedImage1 : loadedImage2) : (loadedImage1 || loadedImage2);
+        if (!sourceImage || sourceImage.height <= 0 || sourceImage.width <= 0) {
+          currentX += Math.max(1, effectiveLineWidth + gapSize);
+          continue;
+        }
+        const displacementY = Math.floor((Math.random() - 0.5) * 2 * vDisplacementMax);
+        const destX_final = drawX + currentX;
+        const destY_final = drawY + displacementY;
+        const destX_center = destX_final + effectiveLineWidth / 2;
+        const destY_center = destY_final + drawHeight / 2;
+        const vScrollOffset = (sourceImage === loadedImage1) ? scrollYOffset1 : scrollYOffset2;
+        const hScrollOffset = (sourceImage === loadedImage1) ? scrollXOffset1 : scrollXOffset2;
+        const baseSourceX = (currentX / drawWidth) * sourceImage.width;
+        const scrolledSourceX = baseSourceX + hScrollOffset;
+        const finalSourceX = scrolledSourceX;
+        const finalSourceY = vScrollOffset;
+        const sourceImageLineWidth = (effectiveLineWidth / drawWidth) * sourceImage.width;
+        const sourceImageLineHeight = sourceImage.height;
+        if (sourceImageLineWidth > 0 && isFinite(finalSourceY) && isFinite(finalSourceX) && isFinite(sourceImageLineHeight)) {
+          elementPrepCanvas.width = effectiveLineWidth;
+          elementPrepCanvas.height = drawHeight;
+          drawTiledImageSection(elementPrepCtx, sourceImage, finalSourceX, finalSourceY, sourceImageLineWidth, sourceImageLineHeight, 0, 0, effectiveLineWidth, drawHeight);
+        } else {
+          currentX += Math.max(1, effectiveLineWidth + gapSize);
+          continue;
+        }
+        ctx.save();
+        const angle = (Math.random() - 0.5) * 2 * maxRotation;
+        const applyRotation = Math.abs(angle) > 0.1 && maxRotation > 0;
+        if (applyRotation) {
+          const radAngle = angle * (Math.PI / 180);
+          ctx.translate(destX_center, destY_center);
+          ctx.rotate(radAngle);
+          ctx.translate(-destX_center, -destY_center);
+        }
+        if (tornEdgeMode) {
+          createJaggedPath(ctx, destX_final, destY_final, effectiveLineWidth, drawHeight, jaggednessAmplitude, jaggednessFrequency);
+          ctx.clip();
+        }
+        ctx.drawImage(elementPrepCanvas, destX_final, destY_final);
+        ctx.restore();
+      }
+      currentX += Math.max(1, effectiveLineWidth + gapSize);
+    }
   }
   
   // Copy frame to recording canvas if optimized recording is active
@@ -550,6 +780,10 @@ function resizeCanvas() {
     drawY = 0;
   }
   if (ctx) {
+    // If freeze mode is enabled, regenerate frozen slices with new dimensions
+    if (freezeSlicesMode) {
+      generateFrozenSlices();
+    }
     drawGlitchFrame();
   }
 }
@@ -862,6 +1096,38 @@ function updateRecordingUI() {
 }
 startButton.addEventListener('click', startRecording);
 stopButton.addEventListener('click', stopRecording);
+
+// Randomize sliders function
+function randomizeSliders() {
+    // Array of all sliders that should be randomized
+    const sliders = [
+        speedSlider, jaggedAmpSlider, jaggedFreqSlider, rotationSlider,
+        hScrollSpeedSlider1, hScrollSpeedSlider2, scrollSpeedSlider1, scrollSpeedSlider2,
+        blockProbSlider, maxBlockHeightSlider, displacementSlider,
+        sliceGapSlider, gapVariabilitySlider, lineProbSlider, maxLineWidthSlider,
+        vDisplacementSlider, lineGapSlider, lineGapVariabilitySlider
+    ];
+    
+    // Randomize each slider
+    sliders.forEach(slider => {
+        const randomValue = Math.random();
+        slider.setAttribute('value', randomValue.toString());
+        
+        // Trigger the change event to update the internal state
+        const changeEvent = new CustomEvent('change', {
+            detail: { displayValue: getSliderDisplayValue(slider) }
+        });
+        slider.dispatchEvent(changeEvent);
+    });
+    
+    // Regenerate frozen slices if freeze mode is enabled
+    if (freezeSlicesMode) {
+        generateFrozenSlices();
+    }
+}
+
+// Add event listener for randomize button
+randomizeButton.addEventListener('click', randomizeSliders);
 
 // --- Start ---
 function startAnimation() {

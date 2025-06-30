@@ -83,6 +83,13 @@
             </div>
             
             <h3>Scrolling Settings</h3>
+            <div class="control-item toggle-item">
+                <label for="freezeSlicesCheckbox" class="toggle-label">Freeze Slices</label>
+                <div class="toggle-switch">
+                    <input type="checkbox" id="freezeSlicesCheckbox">
+                    <span class="toggle-slider"></span>
+                </div>
+            </div>
             <div class="control-item">
                 <basic-slider id="hScrollSpeedSlider1" label="Img 1 Horizontal Scroll" min="-100" max="100" value="0.5" unit="px/s"></basic-slider>
             </div>
@@ -120,6 +127,11 @@
                 <span style="font-size: var(--us-font-size-label); color: var(--us-fg-subtext);">Choose background color for video export (for chroma keying)</span>
             </div>
              <div class="control-group"> <button id="startButton">Start Recording</button> <button id="stopButton" disabled>Stop & Download</button> <div id="recordingStatus"></div> </div>
+             
+             <!-- Randomize Button -->
+             <div class="control-group">
+                 <button id="randomizeButton" style="width: 100%; margin-top: 0.5rem; padding: 10px; background-color: var(--us-bg-accent); color: var(--us-fg-inverted); border: none; border-radius: var(--us-radii-micro-small); cursor: pointer; font-weight: bold;">🎲 Randomize Sliders</button>
+             </div>
         </div>
         <div class="canvas-container"> <canvas id="glitchCanvas"></canvas> </div>
     </div>

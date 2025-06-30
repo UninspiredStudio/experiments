@@ -30,6 +30,7 @@ const domElements = {
     showReplayPathCheckbox: document.getElementById('showReplayPathCheckbox'),
     countdownDisplay: document.getElementById('countdownDisplay'),
     downloadSvgBtn: document.getElementById('downloadSvgBtn'),
+    randomizeButton: document.getElementById('randomizeButton'),
     recordAnimationDurationInput: document.getElementById('recordAnimationDurationInput'),
     recordAnimationBtn: document.getElementById('recordAnimationBtn'),
     recordWithReplayBtn: document.getElementById('recordWithReplayBtn'), // New button
@@ -68,7 +69,8 @@ domElements.controlsToDisable = [
     domElements.particleShapeRadios,
     domElements.interactionModeRadios,
     domElements.particleCharacterInput,
-    domElements.particleFontSelect
+    domElements.particleFontSelect,
+    domElements.randomizeButton
 ];
 
 // --- State Variables ---

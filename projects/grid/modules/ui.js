@@ -37,6 +37,7 @@ export const ui = {
     restartButton: document.getElementById('restartButton'),
     startRecordButton: document.getElementById('startRecordButton'),
     stopRecordButton: document.getElementById('stopRecordButton'),
+    randomizeButton: document.getElementById('randomizeButton'),
     
     // Letter controls
     letterInput: document.getElementById('letterInput'),
@@ -146,6 +147,27 @@ export function updateLetterBgColor() {
     state.letterBgColor = ui.letterBgColorInput.value;
 }
 
+// Randomize sliders function
+export function randomizeSliders() {
+    // Generate random values between 0 and 1 for all sliders
+    const randomSpeedValue = Math.random();
+    const randomGridValue = Math.random();
+    const randomFillValue = Math.random();
+    const randomBrightnessValue = Math.random();
+    
+    // Set the random values on the sliders
+    ui.speedControl.setAttribute('value', randomSpeedValue.toString());
+    ui.gridAmountControl.setAttribute('value', randomGridValue.toString());
+    ui.fillControl.setAttribute('value', randomFillValue.toString());
+    ui.brightnessThresholdControl.setAttribute('value', randomBrightnessValue.toString());
+    
+    // Trigger the update functions to apply the changes
+    updateSpeed({ detail: { value: randomSpeedValue } });
+    updateGridParamsFn();
+    updateFillPercentage({ detail: { value: randomFillValue } });
+    updateBrightnessThreshold({ detail: { value: randomBrightnessValue } });
+}
+
 // Initialize UI event listeners
 export function initializeUIListeners() {
     ui.speedControl.addEventListener('change', updateSpeed);
@@ -185,6 +207,7 @@ export function initializeUIListeners() {
     ui.restartButton.addEventListener('click', handleRestartFn);
     ui.startRecordButton.addEventListener('click', () => handleStartRecordingFn(false));
     ui.stopRecordButton.addEventListener('click', () => handleStopRecordingFn(true));
+    ui.randomizeButton.addEventListener('click', randomizeSliders);
 }
 
 // Apply initial UI states
