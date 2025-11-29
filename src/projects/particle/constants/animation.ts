@@ -1,0 +1,2 @@
+export const PARTICLE_ANIMATION_FPS = 60
+export const PARTICLE_COUNTDOWN_SECONDS = 3

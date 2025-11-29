@@ -1,3 +1,5 @@
+/* eslint-env browser */
+
 // Get elements
 const canvas = document.getElementById('glitchCanvas');
 const ctx = canvas.getContext('2d');
@@ -41,7 +43,7 @@ const backgroundPresets = document.getElementById('backgroundPresets');
 
 // --- State Variables ---
 let loadedImage1 = null, loadedImage2 = null;
-let imageAspectRatio1 = 1, imageAspectRatio2 = 1;
+let _imageAspectRatio1 = 1, _imageAspectRatio2 = 1;
 let hScrollSpeed1 = 0, hScrollSpeed2 = 0, scrollXOffset1 = 0, scrollXOffset2 = 0;
 let scrollSpeed1 = 0, scrollSpeed2 = 0, scrollYOffset1 = 0, scrollYOffset2 = 0;
 let sliceGapBase = 0, gapVariability = 0;

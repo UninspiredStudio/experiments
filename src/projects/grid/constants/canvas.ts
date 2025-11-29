@@ -1,0 +1,7 @@
+export const INITIAL_CANVAS_SIZE = 1000
+export const MAX_INTERNAL_RESOLUTION = 2000
+export const OVERLAP_FIX = 1.1
+
+export const DEFAULT_LETTER_COLOR = '#FFFFFF'
+export const DEFAULT_LETTER_BG_COLOR = '#000000'
+export const IMAGE_VS_LETTER_PROBABILITY = 0.5

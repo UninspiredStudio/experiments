@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Distortion – Displacement Mode</title>
+    <link rel="stylesheet" href="/distortion/displacement.css" />
+  </head>
+  <body>
+    <div class="container">
+      <!-- Controls Panel -->
+      <div id="controlsPanel" class="controls-panel">
+        <h1>Displacement Mode</h1>
+        <div class="controls-section">
+          <!-- Image Upload -->
+          <div class="major-section">
+            <label for="imageLoader" class="file-upload-label">Upload Image</label>
+            <input type="file" id="imageLoader" name="imageLoader" accept="image/*" />
+          </div>
+
+          <!-- Displacement Map Upload -->
+          <div id="displacementModeControlsContainer" class="major-section">
+            <label for="displacementLoader" class="file-upload-label">Upload Displacement Map</label>
+            <input type="file" id="displacementLoader" name="displacementLoader" accept="image/*" />
+            <p class="mode-note">Use a grayscale image where bright areas create more displacement.</p>
+          </div>
+
+          <!-- Displacement Direction -->
+          <div id="displacementDirectionContainer" class="major-section">
+            <label>Displacement Direction</label>
+            <div class="segmented-tab">
+              <button id="dispDirHorizontalBtn" class="active">Horizontal</button>
+              <button id="dispDirVerticalBtn">Vertical</button>
+              <button id="dispDirBothBtn">Both</button>
+              <button id="dispDirRadialBtn">Radial</button>
+            </div>
+          </div>
+
+          <div class="section-divider"></div>
+          <!-- Sliders -->
+          <div class="major-section">
+            <div class="slider-container">
+              <label for="intensitySlider">Intensity: <span class="value-display" id="intensityValue">30</span></label>
+              <input type="range" id="intensitySlider" min="0" max="600" value="30" />
+            </div>
+
+            <div class="slider-container">
+              <label for="radiusSlider">Radius: <span class="value-display" id="radiusValue">800</span>px</label>
+              <input type="range" id="radiusSlider" min="10" max="1500" value="800" />
+            </div>
+
+            <div class="slider-container" id="displacementScaleSliderContainer">
+              <label for="displacementScaleSlider">Displacement Scale: <span class="value-display" id="displacementScaleValue">1.0</span></label>
+              <input type="range" id="displacementScaleSlider" min="0.1" max="3.0" step="0.1" value="1.0" />
+            </div>
+          </div>
+
+          <div class="section-divider"></div>
+
+          <!-- Persistent Points -->
+          <div class="major-section">
+            <label>Persistent Points</label>
+            <div class="persistent-controls">
+              <div class="persistent-info">
+                <span id="pointCount">0</span> point(s) active
+              </div>
+              <div class="persistent-buttons">
+                <button id="clearPointsBtn" class="control-btn secondary">Clear All Points</button>
+                <button id="togglePersistentBtn" class="control-btn primary">Enable Persistent Mode</button>
+              </div>
+            </div>
+            <p class="mode-note">Click on the image to place persistent distortion points. Toggle off to return to mouse hover mode.</p>
+          </div>
+
+          <div class="section-divider"></div>
+
+          <!-- Recording -->
+          <div class="major-section">
+            <label>Canvas Recording</label>
+            <div class="record-controls">
+              <div class="record-duration">
+                <label for="durationInput">Duration (s):</label>
+                <input type="number" id="durationInput" value="3" min="1" max="30" />
+              </div>
+              <button id="recordBtn" class="control-btn record-btn">Record Canvas</button>
+            </div>
+            <p class="mode-note">Records the canvas animation. The download will start automatically.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Canvas -->
+      <div class="canvas-container">
+        <canvas id="imageCanvas"></canvas>
+      </div>
+    </div>
+
+    <script type="module" src="/src/projects/distortion/displacement/main.ts"></script>
+  </body>
+</html>
