@@ -1,7 +1,3 @@
-import { initDisplacementUI } from '../ui/displacement-ui'
+export { createDisplacementController } from './controller'
 
-export function bootstrapDisplacement() {
-  initDisplacementUI()
-}
-
-bootstrapDisplacement()
+// Legacy bootstrap removed; React UI now owns displacement controls.

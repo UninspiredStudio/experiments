@@ -92,16 +92,31 @@
   --text-monospace-body--font-weight: 400;
   --text-monospace-body--letter-spacing: 0em;
   --text-monospace-body--line-height: 20px;
+  --text-us-body-multiline: 16px;
+  --text-us-body-multiline--font-weight: 400;
+  --text-us-body-multiline--letter-spacing: 0em;
+  --text-us-body-multiline--line-height: 24px;
+  --text-us-body-singleline: 16px;
+  --text-us-body-singleline--font-weight: 400;
+  --text-us-body-singleline--letter-spacing: 0em;
+  --text-us-body-singleline--line-height: 16px;
+  --text-us-intro-multiline: 22px;
+  --text-us-intro-multiline--font-weight: 400;
+  --text-us-intro-multiline--letter-spacing: 0em;
+  --text-us-intro-multiline--line-height: 33px;
 
   /* Font families */
-  --font-caption: "IBM Plex Mono";
-  --font-caption-bold: "IBM Plex Mono";
-  --font-body: "IBM Plex Mono";
-  --font-body-bold: "IBM Plex Mono";
-  --font-heading-3: "IBM Plex Mono";
-  --font-heading-2: "IBM Plex Mono";
-  --font-heading-1: "IBM Plex Mono";
+  --font-caption: Inter;
+  --font-caption-bold: Inter;
+  --font-body: Inter;
+  --font-body-bold: Inter;
+  --font-heading-3: "Instrument Serif";
+  --font-heading-2: "Instrument Serif";
+  --font-heading-1: "Instrument Serif";
   --font-monospace-body: monospace;
+  --font-us-body-multiline: "Instrument Serif";
+  --font-us-body-singleline: "Instrument Serif";
+  --font-us-intro-multiline: "Instrument Serif";
 
   /* Box shadows */
   --shadow-sm: 0px 1px 2px 0px rgba(0, 0, 0, 0.05);

@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@subframe/core": "^1.148.0",
+    "@tanstack/react-router": "^1.139.11",
     "@vitejs/plugin-react": "^5.1.1",
     "jszip": "^3.10.1",
     "paper": "^0.12.18",

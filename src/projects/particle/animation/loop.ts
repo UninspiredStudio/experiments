@@ -1,8 +1,6 @@
 import { particleState } from '../core/state'
 import { drawFrame } from '../rendering/renderer'
 import { PARTICLE_ANIMATION_FPS } from '../constants/animation'
-import { updateReplayPath } from '../features/replay/player'
-import { captureFrameIfNeeded } from '../features/recording/frames-recorder'
 
 let animationFrameId: number | null = null
 let lastTimestamp: number | null = null
@@ -43,8 +41,6 @@ export function startAnimationLoop(canvas: HTMLCanvasElement, ctx: CanvasRenderi
     if (deltaMs >= FRAME_INTERVAL_MS) {
       lastTimestamp = timestamp
 
-      const deltaSeconds = deltaMs / 1000
-
       for (const particle of particleState.particles) {
         particle.update()
       }
@@ -53,9 +49,6 @@ export function startAnimationLoop(canvas: HTMLCanvasElement, ctx: CanvasRenderi
         ctx: loopContext.ctx,
         canvas: loopContext.canvas,
       })
-
-      updateReplayPath(loopContext.ctx, deltaSeconds)
-      captureFrameIfNeeded(loopContext.canvas)
     }
 
     animationFrameId = window.requestAnimationFrame(step)

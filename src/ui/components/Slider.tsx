@@ -1,7 +1,7 @@
 "use client";
 /*
  * Documentation:
- * Slider — https://app.subframe.com/0890da2aa05a/library?component=Slider_f4092874-0320-449e-a0c5-b435987c4cfb
+ * Slider — https://app.subframe.com/0890da2aa05a/library?component=Slider_1601945f-3f70-45f0-b34f-b3adae4a148c
  */
 
 import React from "react";
@@ -21,7 +21,7 @@ const Range = React.forwardRef<HTMLDivElement, RangeProps>(function Range(
     <SubframeCore.Slider.Range asChild={true} {...otherProps}>
       <div
         className={SubframeUtils.twClassNames(
-          "flex h-full flex-col items-start rounded-full bg-brand-600",
+          "flex h-full flex-col items-start bg-brand-400",
           className
         )}
         ref={ref}
@@ -43,7 +43,7 @@ const Thumb = React.forwardRef<HTMLDivElement, ThumbProps>(function Thumb(
     <SubframeCore.Slider.Thumb asChild={true} {...otherProps}>
       <div
         className={SubframeUtils.twClassNames(
-          "flex h-5 w-5 items-center gap-2 rounded-full bg-brand-600",
+          "flex h-6 w-6 items-center gap-2 bg-brand-400",
           className
         )}
         ref={ref}
@@ -65,7 +65,7 @@ const Track = React.forwardRef<HTMLDivElement, TrackProps>(function Track(
     <SubframeCore.Slider.Track asChild={true} {...otherProps}>
       <div
         className={SubframeUtils.twClassNames(
-          "flex h-1.5 w-full flex-col items-start gap-2 rounded-full bg-neutral-100",
+          "flex h-12 w-full flex-col items-start gap-2 bg-neutral-100",
           className
         )}
         ref={ref}
@@ -90,13 +90,16 @@ const SliderRoot = React.forwardRef<HTMLDivElement, SliderRootProps>(
       <SubframeCore.Slider.Root asChild={true} {...otherProps}>
         <div
           className={SubframeUtils.twClassNames(
-            "flex h-5 w-full cursor-pointer flex-col items-start justify-center gap-2",
+            "flex h-12 w-full cursor-pointer flex-col items-start justify-center gap-2 overflow-hidden relative",
             className
           )}
           ref={ref}
         >
+          <span className="text-us-body-singleline font-us-body-singleline text-default-font text-center absolute z-[2] left-0 right-0 pointer-events-none">
+            Label
+          </span>
           <Track />
-          <Thumb />
+          <Thumb className="h-12 w-6 flex-none" />
         </div>
       </SubframeCore.Slider.Root>
     );
