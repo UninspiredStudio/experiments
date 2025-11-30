@@ -5,8 +5,15 @@ import { ControlSection, ExperimentShell, LabeledSlider } from "@/components/sha
 import { Button, Switch, ToggleGroup } from "@/ui";
 import { createShiftEffect, type ShiftDirection, type ShiftEffect, type ShiftParams } from "@projects/distortion/effects/shift";
 import { coordsFromMouse, loadImageFromFile } from "@projects/distortion/core/image-loader";
+import { INTENSITY_RANGE, RADIUS_RANGE } from "@projects/distortion/constants/common";
+import { FRAGMENTATION_RANGE, BRIGHTNESS_INFLUENCE_RANGE } from "@projects/distortion/constants/shift";
+import type { Point } from "@/types";
+import { clamp } from "@shared/utils/math";
+import { useCanvasFit } from "@/hooks/useCanvasFit";
+import { fitCanvasToContainer } from "@/utils/fitCanvasToContainer";
+import { DEFAULT_PLACEHOLDER_IMAGE, SECONDARY_PLACEHOLDER_IMAGE } from "@/config/assets";
 
-const DEFAULT_IMAGE = "/img-placeholder/2.jpeg";
+const DEFAULT_IMAGE = SECONDARY_PLACEHOLDER_IMAGE ?? DEFAULT_PLACEHOLDER_IMAGE;
 
 const DEFAULTS: ShiftParams = {
   radius: 420,
@@ -19,12 +26,6 @@ const DEFAULTS: ShiftParams = {
   isBrightnessInfluenceDeleteEnabled: false,
   brightnessInfluenceDeleteThreshold: 0.4,
 };
-
-type Point = { x: number; y: number };
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
-}
 
 async function loadImage(src: string): Promise<HTMLImageElement> {
   const img = new Image();
@@ -74,8 +75,8 @@ function ShiftControls({
         <LabeledSlider
           label="Radius"
           value={params.radius}
-          min={60}
-          max={1400}
+          min={RADIUS_RANGE.min}
+          max={RADIUS_RANGE.max}
           step={10}
           formatValue={(val) => `${Math.round(val)}px`}
           onChange={(val) => setParams({ radius: val })}
@@ -83,8 +84,8 @@ function ShiftControls({
         <LabeledSlider
           label="Intensity"
           value={params.intensity}
-          min={1}
-          max={120}
+          min={INTENSITY_RANGE.min}
+          max={INTENSITY_RANGE.max}
           step={1}
           formatValue={(val) => Math.round(val).toString()}
           onChange={(val) => setParams({ intensity: val })}
@@ -95,8 +96,8 @@ function ShiftControls({
         <LabeledSlider
           label="Fragmentation"
           value={params.fragmentation}
-          min={0}
-          max={400}
+          min={FRAGMENTATION_RANGE.min}
+          max={FRAGMENTATION_RANGE.max}
           step={5}
           formatValue={(val) => Math.round(val).toString()}
           onChange={(val) => setParams({ fragmentation: val })}
@@ -104,9 +105,9 @@ function ShiftControls({
         <LabeledSlider
           label="Brightness influence"
           value={params.brightnessInfluence}
-          min={0}
-          max={1}
-          step={0.02}
+          min={BRIGHTNESS_INFLUENCE_RANGE.min}
+          max={BRIGHTNESS_INFLUENCE_RANGE.max}
+          step={BRIGHTNESS_INFLUENCE_RANGE.step}
           formatValue={(val) => val.toFixed(2)}
           onChange={(val) => setParams({ brightnessInfluence: val })}
         />
@@ -211,13 +212,13 @@ function ShiftCanvas({
   onCanvasClick: (event: React.MouseEvent<HTMLCanvasElement>) => void;
 }) {
   return (
-    <div className="flex w-full flex-col gap-3">
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-3 overflow-hidden">
       <p className="text-caption text-subtext-color">
         Shift fragments along a chosen axis or radially. Click to add persistent distortion points.
       </p>
       <canvas
         ref={canvasRef}
-        className="max-w-full rounded-md border border-neutral-border bg-black"
+        className="h-auto w-auto max-h-full max-w-full self-center my-auto rounded-md border border-neutral-border bg-black"
         onMouseMove={onPointerMove}
         onMouseLeave={onPointerLeave}
         onClick={onCanvasClick}
@@ -236,6 +237,8 @@ export default function ShiftPage() {
   const pointsRef = React.useRef<Point[]>([]);
   const settingsRef = React.useRef<ShiftParams>({ ...DEFAULTS });
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  useCanvasFit(canvasRef, containerRef);
 
   const [params, setParamsState] = React.useState<ShiftParams>({ ...DEFAULTS });
   const [persistentMode, setPersistentMode] = React.useState(false);
@@ -280,6 +283,7 @@ export default function ShiftPage() {
       const height = Math.max(420, Math.round(img.naturalHeight * scale));
       canvas.width = width;
       canvas.height = height;
+      fitCanvasToContainer(canvas, container ?? canvas.parentElement);
       ctx.clearRect(0, 0, width, height);
       ctx.drawImage(img, 0, 0, width, height);
       try {
@@ -307,9 +311,17 @@ export default function ShiftPage() {
   }, [redrawCanvas]);
 
   const randomize = React.useCallback(() => {
-    const nextRadius = clamp(Math.round(100 + Math.random() * 700), 80, 1400);
-    const nextIntensity = clamp(Math.round(8 + Math.random() * 80), 1, 120);
-    const nextFragmentation = clamp(Math.round(Math.random() * 320), 0, 400);
+    const nextRadius = clamp(Math.round(100 + Math.random() * 700), RADIUS_RANGE.min, RADIUS_RANGE.max);
+    const nextIntensity = clamp(
+      Math.round(8 + Math.random() * 80),
+      INTENSITY_RANGE.min,
+      INTENSITY_RANGE.max,
+    );
+    const nextFragmentation = clamp(
+      Math.round(Math.random() * FRAGMENTATION_RANGE.max),
+      FRAGMENTATION_RANGE.min,
+      FRAGMENTATION_RANGE.max,
+    );
     const nextBrightnessInfluence = parseFloat((Math.random()).toFixed(2));
     const nextDirection: ShiftDirection = ["horizontal", "vertical", "radial"][Math.floor(Math.random() * 3)] as ShiftDirection;
     updateParams({
@@ -428,16 +440,24 @@ export default function ShiftPage() {
           setParams={(next) => {
             const nextValues: Partial<ShiftParams> = { ...next };
             if (typeof nextValues.radius === "number") {
-              nextValues.radius = clamp(Math.round(nextValues.radius), 60, 1400);
+              nextValues.radius = clamp(Math.round(nextValues.radius), RADIUS_RANGE.min, RADIUS_RANGE.max);
             }
             if (typeof nextValues.intensity === "number") {
-              nextValues.intensity = clamp(Math.round(nextValues.intensity), 1, 120);
+              nextValues.intensity = clamp(Math.round(nextValues.intensity), INTENSITY_RANGE.min, INTENSITY_RANGE.max);
             }
             if (typeof nextValues.fragmentation === "number") {
-              nextValues.fragmentation = clamp(Math.round(nextValues.fragmentation), 0, 400);
+              nextValues.fragmentation = clamp(
+                Math.round(nextValues.fragmentation),
+                FRAGMENTATION_RANGE.min,
+                FRAGMENTATION_RANGE.max,
+              );
             }
             if (typeof nextValues.brightnessInfluence === "number") {
-              nextValues.brightnessInfluence = clamp(nextValues.brightnessInfluence, 0, 1);
+              nextValues.brightnessInfluence = clamp(
+                nextValues.brightnessInfluence,
+                BRIGHTNESS_INFLUENCE_RANGE.min,
+                BRIGHTNESS_INFLUENCE_RANGE.max,
+              );
             }
             if (typeof nextValues.pixelDeleteThreshold === "number") {
               nextValues.pixelDeleteThreshold = clamp(nextValues.pixelDeleteThreshold, 0, 1);
@@ -462,7 +482,7 @@ export default function ShiftPage() {
         />
       }
       canvas={
-        <div ref={containerRef} className="w-full">
+        <div ref={containerRef} className="flex h-full min-h-0 w-full flex-1 flex-col">
           <ShiftCanvas
             canvasRef={canvasRef}
             onPointerMove={handlePointerMove}

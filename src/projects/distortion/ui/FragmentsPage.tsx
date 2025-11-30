@@ -2,11 +2,19 @@
 
 import React from "react";
 import { ControlSection, ExperimentShell, LabeledSlider } from "@/components/shared";
-import { Button, Switch } from "@/ui";
+import { Button, Switch, TextField } from "@/ui";
 import { createFragmentsEffect, type FragmentsEffect, type FragmentsParams } from "@projects/distortion/effects/fragments";
 import { coordsFromMouse, loadImageFromFile } from "@projects/distortion/core/image-loader";
+import { startCanvasRecording } from "@projects/distortion/features/recording/recorder";
+import { FRAGMENTS_BLOCK_SIZE_RANGE } from "@projects/distortion/constants/fragments";
+import { INTENSITY_RANGE, RADIUS_RANGE } from "@projects/distortion/constants/common";
+import { DEFAULT_PLACEHOLDER_IMAGE } from "@/config/assets";
+import type { Point } from "@/types";
+import { clamp } from "@shared/utils/math";
+import { useCanvasFit } from "@/hooks/useCanvasFit";
+import { fitCanvasToContainer } from "@/utils/fitCanvasToContainer";
 
-const DEFAULT_IMAGE = "/img-placeholder/1.jpeg";
+const DEFAULT_IMAGE = DEFAULT_PLACEHOLDER_IMAGE;
 
 const DEFAULTS: FragmentsParams = {
   radius: 220,
@@ -15,12 +23,6 @@ const DEFAULTS: FragmentsParams = {
   isPersistentMode: false,
   isAnimationEnabled: true,
 };
-
-type Point = { x: number; y: number };
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
-}
 
 async function loadImage(src: string): Promise<HTMLImageElement> {
   const img = new Image();
@@ -46,6 +48,10 @@ function FragmentsControls({
   onReset,
   onRandomize,
   loadingImage,
+  recordingDuration,
+  setRecordingDuration,
+  onStartRecording,
+  isRecording,
 }: {
   radius: number;
   setRadius: (value: number) => void;
@@ -63,6 +69,10 @@ function FragmentsControls({
   onReset: () => void;
   onRandomize: () => void;
   loadingImage: boolean;
+  recordingDuration: number;
+  setRecordingDuration: (value: number) => void;
+  onStartRecording: () => void;
+  isRecording: boolean;
 }) {
   return (
     <div className="flex w-full flex-col gap-4">
@@ -81,8 +91,8 @@ function FragmentsControls({
       <LabeledSlider
         label="Radius"
         value={radius}
-        min={40}
-        max={1200}
+        min={RADIUS_RANGE.min}
+        max={RADIUS_RANGE.max}
         step={10}
         formatValue={(val) => `${Math.round(val)}px`}
         onChange={(val) => setRadius(val)}
@@ -91,8 +101,8 @@ function FragmentsControls({
       <LabeledSlider
         label="Intensity"
         value={intensity}
-        min={1}
-        max={120}
+        min={INTENSITY_RANGE.min}
+        max={INTENSITY_RANGE.max}
         step={1}
         formatValue={(val) => Math.round(val).toString()}
         onChange={(val) => setIntensity(val)}
@@ -101,9 +111,9 @@ function FragmentsControls({
       <LabeledSlider
         label="Block size"
         value={blockSize}
-        min={2}
-        max={120}
-        step={1}
+        min={FRAGMENTS_BLOCK_SIZE_RANGE.min}
+        max={FRAGMENTS_BLOCK_SIZE_RANGE.max}
+        step={FRAGMENTS_BLOCK_SIZE_RANGE.step}
         formatValue={(val) => `${Math.round(val)}px`}
         onChange={(val) => setBlockSize(val)}
       />
@@ -138,6 +148,25 @@ function FragmentsControls({
           collage.
         </p>
       </ControlSection>
+
+      <ControlSection title="Recording" spacing="normal">
+        <TextField label="Duration (seconds)">
+          <TextField.Input
+            type="number"
+            min={1}
+            max={60}
+            step={1}
+            value={String(recordingDuration)}
+            onChange={(event) => {
+              const next = Number.parseInt(event.target.value, 10) || 1;
+              setRecordingDuration(next);
+            }}
+          />
+        </TextField>
+        <Button size="small" variant="brand-secondary" onClick={onStartRecording} disabled={loadingImage || isRecording}>
+          Record canvas
+        </Button>
+      </ControlSection>
     </div>
   );
 }
@@ -154,13 +183,13 @@ function FragmentsCanvas({
   onCanvasClick: (event: React.MouseEvent<HTMLCanvasElement>) => void;
 }) {
   return (
-    <div className="flex w-full flex-col gap-3">
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-3 overflow-hidden">
       <p className="text-caption text-subtext-color">
         Move the cursor to nudge fragments. Click to drop persistent points when that mode is enabled.
       </p>
       <canvas
         ref={canvasRef}
-        className="max-w-full rounded-md border border-neutral-border bg-black"
+        className="h-auto w-auto max-h-full max-w-full self-center my-auto rounded-md border border-neutral-border bg-black"
         onMouseMove={onPointerMove}
         onMouseLeave={onPointerLeave}
         onClick={onCanvasClick}
@@ -180,6 +209,8 @@ export default function FragmentsPage() {
   const settingsRef = React.useRef<FragmentsParams>({ ...DEFAULTS });
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
+  useCanvasFit(canvasRef, containerRef);
+
   const [radius, setRadius] = React.useState(DEFAULTS.radius);
   const [intensity, setIntensity] = React.useState(DEFAULTS.intensity);
   const [blockSize, setBlockSize] = React.useState(DEFAULTS.blockSize);
@@ -187,6 +218,9 @@ export default function FragmentsPage() {
   const [isPersistentMode, setPersistentMode] = React.useState(DEFAULTS.isPersistentMode);
   const [pointCount, setPointCount] = React.useState(0);
   const [loadingImage, setLoadingImage] = React.useState(false);
+  const [recordingDuration, setRecordingDuration] = React.useState(5);
+  const [isRecording, setIsRecording] = React.useState(false);
+  const recordingTimeoutRef = React.useRef<number | null>(null);
 
   const updateSettings = React.useCallback(
     (next: Partial<FragmentsParams>) => {
@@ -227,6 +261,7 @@ export default function FragmentsPage() {
       const height = Math.max(400, Math.round(img.naturalHeight * scale));
       canvas.width = width;
       canvas.height = height;
+      fitCanvasToContainer(canvas, container ?? canvas.parentElement);
       ctx.clearRect(0, 0, width, height);
       ctx.drawImage(img, 0, 0, width, height);
       try {
@@ -257,9 +292,17 @@ export default function FragmentsPage() {
   }, [redrawCanvas, updateSettings]);
 
   const randomize = React.useCallback(() => {
-    const nextRadius = clamp(Math.round(120 + Math.random() * 600), 80, 900);
-    const nextIntensity = clamp(Math.round(10 + Math.random() * 80), 5, 120);
-    const nextBlockSize = clamp(Math.round(4 + Math.random() * 80), 2, 120);
+    const nextRadius = clamp(Math.round(120 + Math.random() * 600), RADIUS_RANGE.min, RADIUS_RANGE.max);
+    const nextIntensity = clamp(
+      Math.round(10 + Math.random() * (INTENSITY_RANGE.max - 10)),
+      INTENSITY_RANGE.min,
+      INTENSITY_RANGE.max,
+    );
+    const nextBlockSize = clamp(
+      Math.round(4 + Math.random() * 80),
+      FRAGMENTS_BLOCK_SIZE_RANGE.min,
+      FRAGMENTS_BLOCK_SIZE_RANGE.max / 2,
+    );
     const nextAnimation = Math.random() > 0.4;
 
     setRadius(nextRadius);
@@ -330,6 +373,25 @@ export default function FragmentsPage() {
     redrawCanvas();
   }, [redrawCanvas]);
 
+  const handleStartRecording = React.useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) { return; }
+    if (isRecording) { return; }
+    const seconds = recordingDuration;
+    const ms = seconds * 1000;
+    if (!Number.isFinite(ms) || ms <= 0) { return; }
+    const handle = startCanvasRecording(canvas, { durationMs: ms, fps: 60 });
+    if (!handle) { return; }
+    setIsRecording(true);
+    if (recordingTimeoutRef.current !== null) {
+      window.clearTimeout(recordingTimeoutRef.current);
+    }
+    recordingTimeoutRef.current = window.setTimeout(() => {
+      setIsRecording(false);
+      recordingTimeoutRef.current = null;
+    }, ms + 500);
+  }, [isRecording, recordingDuration]);
+
   React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) { return; }
@@ -359,6 +421,15 @@ export default function FragmentsPage() {
       window.removeEventListener("resize", handleResize);
     };
   }, [applyImage, sizeCanvasToContainer]);
+
+  React.useEffect(() => {
+    return () => {
+      if (recordingTimeoutRef.current !== null) {
+        window.clearTimeout(recordingTimeoutRef.current);
+        recordingTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   React.useEffect(() => {
     updateSettings({ radius });
@@ -399,11 +470,11 @@ export default function FragmentsPage() {
       controls={
         <FragmentsControls
           radius={radius}
-          setRadius={(value) => setRadius(clamp(Math.round(value), 40, 1200))}
+          setRadius={(value) => setRadius(clamp(Math.round(value), RADIUS_RANGE.min, RADIUS_RANGE.max))}
           intensity={intensity}
-          setIntensity={(value) => setIntensity(clamp(Math.round(value), 1, 120))}
+          setIntensity={(value) => setIntensity(clamp(Math.round(value), INTENSITY_RANGE.min, INTENSITY_RANGE.max))}
           blockSize={blockSize}
-          setBlockSize={(value) => setBlockSize(clamp(Math.round(value), 2, 120))}
+          setBlockSize={(value) => setBlockSize(clamp(Math.round(value), FRAGMENTS_BLOCK_SIZE_RANGE.min, FRAGMENTS_BLOCK_SIZE_RANGE.max))}
           isAnimationEnabled={isAnimationEnabled}
           setAnimationEnabled={setAnimationEnabled}
           isPersistentMode={isPersistentMode}
@@ -414,10 +485,14 @@ export default function FragmentsPage() {
           onReset={resetControls}
           onRandomize={randomize}
           loadingImage={loadingImage}
+          recordingDuration={recordingDuration}
+          setRecordingDuration={(value) => setRecordingDuration(clamp(Math.round(value), 1, 60))}
+          onStartRecording={handleStartRecording}
+          isRecording={isRecording}
         />
       }
       canvas={
-        <div ref={containerRef} className="w-full">
+        <div ref={containerRef} className="flex h-full min-h-0 w-full flex-1 flex-col">
           <FragmentsCanvas
             canvasRef={canvasRef}
             onPointerMove={handlePointerMove}

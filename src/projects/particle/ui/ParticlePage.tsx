@@ -7,40 +7,18 @@ import { startAnimationLoop, stopAnimationLoop } from "@projects/particle/animat
 import { particleState, resetParticleState } from "@projects/particle/core/state";
 import { createParticleFromDefinition, updateParticleCharacters } from "@projects/particle/core/particles";
 import { drawFrame } from "@projects/particle/rendering/renderer";
+import { PARTICLE_CONTROL_DEFAULTS, PARTICLE_FONT_OPTIONS } from "@projects/particle/constants/defaults";
+import { PARTICLE_SLIDERS } from "@projects/particle/constants/sliders";
+import { useParticleControlsStore } from "@projects/particle/store/useParticleControlsStore";
 import type { InteractionMode, ParticleShape } from "@projects/particle/types/state";
 import type { ParticleDefinition } from "@projects/particle/types/particle";
+import { useCanvasFit } from "@/hooks/useCanvasFit";
+import { fitCanvasToContainer } from "@/utils/fitCanvasToContainer";
+import { clamp } from "@shared/utils/math";
+import { DEFAULT_PLACEHOLDER_IMAGE } from "@/config/assets";
 
-const DEFAULT_IMAGE = "/img-placeholder/1.jpeg";
-
-const DEFAULTS = {
-  density: 12,
-  radius: 300,
-  speed: 10,
-  size: 6.4,
-  shape: "character" as ParticleShape,
-  interaction: "repel" as InteractionMode,
-  characters: "?",
-  font: "Arial",
-};
-
-const FONT_OPTIONS = [
-  "Arial",
-  "Times New Roman",
-  "Courier New",
-  "Helvetica",
-  "Georgia",
-  "Verdana",
-  "Trebuchet MS",
-  "Comic Sans MS",
-  "Impact",
-  "Lucida Console",
-  "Tahoma",
-  "Palatino",
-];
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
-}
+const DEFAULT_IMAGE = DEFAULT_PLACEHOLDER_IMAGE;
+const DEFAULTS = PARTICLE_CONTROL_DEFAULTS;
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -187,6 +165,11 @@ function ParticleControls({
   currentImageName: string;
   loadingImage: boolean;
 }) {
+  const densityConfig = PARTICLE_SLIDERS.density;
+  const sizeConfig = PARTICLE_SLIDERS.particleSize;
+  const radiusConfig = PARTICLE_SLIDERS.radius;
+  const speedConfig = PARTICLE_SLIDERS.speed;
+
   return (
     <div className="flex w-full flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -210,9 +193,9 @@ function ParticleControls({
       <LabeledSlider
         label="Density"
         value={density}
-        min={2}
-        max={32}
-        step={1}
+        min={densityConfig.min}
+        max={densityConfig.max}
+        step={densityConfig.step}
         formatValue={(val) => Math.round(val).toString()}
         helperText="Lower values pack particles closer together."
         onChange={(val) => setDensity(val)}
@@ -221,9 +204,9 @@ function ParticleControls({
       <LabeledSlider
         label="Particle size"
         value={particleSize}
-        min={0.5}
-        max={15}
-        step={0.1}
+        min={sizeConfig.min}
+        max={sizeConfig.max}
+        step={sizeConfig.step}
         formatValue={(val) => `${val.toFixed(1)}px`}
         onChange={(val) => setParticleSize(val)}
       />
@@ -231,9 +214,9 @@ function ParticleControls({
       <LabeledSlider
         label="Interaction radius"
         value={radius}
-        min={40}
-        max={900}
-        step={5}
+        min={radiusConfig.min}
+        max={radiusConfig.max}
+        step={radiusConfig.step}
         formatValue={(val) => `${Math.round(val)}px`}
         onChange={(val) => setRadius(val)}
       />
@@ -241,9 +224,9 @@ function ParticleControls({
       <LabeledSlider
         label="Effect speed"
         value={speed}
-        min={1}
-        max={120}
-        step={1}
+        min={speedConfig.min}
+        max={speedConfig.max}
+        step={speedConfig.step}
         formatValue={(val) => Math.round(val).toString()}
         helperText="Higher values slow down the return animation."
         onChange={(val) => setSpeed(val)}
@@ -326,7 +309,7 @@ function ParticleCanvas({
   onPointerLeave: () => void;
 }) {
   return (
-    <div className="flex w-full flex-col gap-3">
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-3 overflow-hidden">
       <div className="flex items-center justify-between">
         <p className="text-caption text-subtext-color">
           Move your cursor over the canvas to interact with the particles.
@@ -334,7 +317,7 @@ function ParticleCanvas({
       </div>
       <canvas
         ref={canvasRef}
-        className="max-w-full rounded-md border border-neutral-border bg-black"
+        className="h-auto w-auto max-h-full max-w-full self-center my-auto rounded-md border border-neutral-border bg-black"
         onMouseMove={onPointerMove}
         onMouseLeave={onPointerLeave}
       />
@@ -349,16 +332,33 @@ export default function ParticlePage() {
   const currentImageRef = React.useRef<HTMLImageElement | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
-  const [density, setDensityState] = React.useState(DEFAULTS.density);
-  const [radius, setRadiusState] = React.useState(DEFAULTS.radius);
-  const [speed, setSpeedState] = React.useState(DEFAULTS.speed);
-  const [particleSize, setParticleSizeState] = React.useState(DEFAULTS.size);
-  const [shape, setShapeState] = React.useState<ParticleShape>(DEFAULTS.shape);
-  const [interaction, setInteractionState] = React.useState<InteractionMode>(DEFAULTS.interaction);
-  const [characters, setCharactersState] = React.useState(DEFAULTS.characters);
-  const [font, setFontState] = React.useState(DEFAULTS.font);
-  const [currentImageName, setCurrentImageName] = React.useState("Placeholder");
-  const [loadingImage, setLoadingImage] = React.useState(false);
+  useCanvasFit(canvasRef, containerRef);
+
+  const {
+    density,
+    radius,
+    speed,
+    particleSize,
+    shape,
+    interaction,
+    characters,
+    font,
+    currentImageName,
+    loadingImage,
+    setDensity,
+    setRadius,
+    setSpeed,
+    setParticleSize,
+    setShape,
+    setInteraction,
+    setCharacters,
+    setFont,
+    setCurrentImageName,
+    setLoadingImage,
+    applyToParticleState,
+    reset,
+    randomize,
+  } = useParticleControlsStore();
 
   const rebuildParticles = React.useCallback((img?: HTMLImageElement) => {
     const canvas = canvasRef.current;
@@ -382,6 +382,7 @@ export default function ParticlePage() {
     const height = Math.max(500, Math.round(width * 0.65));
     canvas.width = width;
     canvas.height = height;
+    fitCanvasToContainer(canvas, container ?? canvas.parentElement);
     rebuildParticles();
   }, [rebuildParticles]);
 
@@ -395,7 +396,7 @@ export default function ParticlePage() {
     setDensityState(DEFAULTS.density);
     setRadiusState(DEFAULTS.radius);
     setSpeedState(DEFAULTS.speed);
-    setParticleSizeState(DEFAULTS.size);
+    setParticleSizeState(DEFAULTS.particleSize);
     setShapeState(DEFAULTS.shape);
     setInteractionState(DEFAULTS.interaction);
     setCharactersState(DEFAULTS.characters);
@@ -404,7 +405,7 @@ export default function ParticlePage() {
     particleState.particleDensity = DEFAULTS.density;
     particleState.mouse.radius = DEFAULTS.radius;
     particleState.mouseEffectSpeedFactor = DEFAULTS.speed;
-    particleState.particleSize = DEFAULTS.size;
+    particleState.particleSize = DEFAULTS.particleSize;
     particleState.particleShape = DEFAULTS.shape;
     particleState.interactionMode = DEFAULTS.interaction;
     particleState.particleCharacter = DEFAULTS.characters;
@@ -414,10 +415,26 @@ export default function ParticlePage() {
   }, [rebuildParticles]);
 
   const randomizeControls = React.useCallback(() => {
-    const nextDensity = clamp(Math.round(4 + Math.random() * 20), 2, 32);
-    const nextSize = parseFloat((0.8 + Math.random() * 9).toFixed(1));
-    const nextRadius = Math.round(80 + Math.random() * 520);
-    const nextSpeed = clamp(Math.round(4 + Math.random() * 80), 1, 120);
+    const nextDensity = clamp(
+      Math.round(4 + Math.random() * 20),
+      PARTICLE_SLIDERS.density.min,
+      PARTICLE_SLIDERS.density.max,
+    );
+    const nextSize = clamp(
+      parseFloat((0.8 + Math.random() * 9).toFixed(1)),
+      PARTICLE_SLIDERS.particleSize.min,
+      PARTICLE_SLIDERS.particleSize.max,
+    );
+    const nextRadius = clamp(
+      Math.round(80 + Math.random() * 520),
+      PARTICLE_SLIDERS.radius.min,
+      PARTICLE_SLIDERS.radius.max,
+    );
+    const nextSpeed = clamp(
+      Math.round(4 + Math.random() * 80),
+      PARTICLE_SLIDERS.speed.min,
+      PARTICLE_SLIDERS.speed.max,
+    );
     const nextShape: ParticleShape = ["circle", "square", "character"][Math.floor(Math.random() * 3)] as ParticleShape;
     const nextInteraction: InteractionMode = Math.random() > 0.5 ? "repel" : "attract";
     const nextFont = FONT_OPTIONS[Math.floor(Math.random() * FONT_OPTIONS.length)];
@@ -585,7 +602,7 @@ export default function ParticlePage() {
         />
       }
       canvas={
-        <div ref={containerRef} className="w-full">
+        <div ref={containerRef} className="flex h-full min-h-0 w-full flex-1 flex-col">
           <ParticleCanvas
             canvasRef={canvasRef}
             onPointerMove={handlePointerMove}

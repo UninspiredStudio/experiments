@@ -1,12 +1,5 @@
 import type { ParticleState } from '../types/state'
-
-// Legacy defaults from the original particle script / HTML
-const DEFAULT_PARTICLE_DENSITY = 12
-const DEFAULT_MOUSE_RADIUS = 300
-const DEFAULT_MOUSE_EFFECT_SPEED = 10
-const DEFAULT_PARTICLE_SIZE = 6.4
-const DEFAULT_PARTICLE_CHARACTER = '?'
-const DEFAULT_PARTICLE_FONT = 'Arial'
+import { PARTICLE_CONTROL_DEFAULTS } from '../constants/defaults'
 
 export const particleState: ParticleState = {
   particles: [],
@@ -17,7 +10,7 @@ export const particleState: ParticleState = {
   mouse: {
     x: null,
     y: null,
-    radius: DEFAULT_MOUSE_RADIUS,
+    radius: PARTICLE_CONTROL_DEFAULTS.radius,
   },
 
   actualMouse: {
@@ -25,8 +18,8 @@ export const particleState: ParticleState = {
     y: null,
   },
 
-  particleDensity: DEFAULT_PARTICLE_DENSITY,
-  mouseEffectSpeedFactor: DEFAULT_MOUSE_EFFECT_SPEED,
+  particleDensity: PARTICLE_CONTROL_DEFAULTS.density,
+  mouseEffectSpeedFactor: PARTICLE_CONTROL_DEFAULTS.speed,
 
   ctx: null,
   isResizing: false,
@@ -56,11 +49,11 @@ export const particleState: ParticleState = {
   hasRecordedAnimation: false,
   isProcessingRecording: false,
 
-  particleSize: DEFAULT_PARTICLE_SIZE,
-  particleShape: 'character',
-  particleCharacter: DEFAULT_PARTICLE_CHARACTER,
-  particleFont: DEFAULT_PARTICLE_FONT,
-  interactionMode: 'repel',
+  particleSize: PARTICLE_CONTROL_DEFAULTS.particleSize,
+  particleShape: PARTICLE_CONTROL_DEFAULTS.shape,
+  particleCharacter: PARTICLE_CONTROL_DEFAULTS.characters,
+  particleFont: PARTICLE_CONTROL_DEFAULTS.font,
+  interactionMode: PARTICLE_CONTROL_DEFAULTS.interaction,
   lastTimestamp: 0,
 
   isRecordingVideo: false,
@@ -133,4 +126,13 @@ export function resetParticleState(): void {
   particleState.isOptimizedRecording = false
 
   particleState.lastTimestamp = 0
+
+  particleState.particleDensity = PARTICLE_CONTROL_DEFAULTS.density
+  particleState.mouse.radius = PARTICLE_CONTROL_DEFAULTS.radius
+  particleState.mouseEffectSpeedFactor = PARTICLE_CONTROL_DEFAULTS.speed
+  particleState.particleSize = PARTICLE_CONTROL_DEFAULTS.particleSize
+  particleState.particleShape = PARTICLE_CONTROL_DEFAULTS.shape
+  particleState.particleCharacter = PARTICLE_CONTROL_DEFAULTS.characters
+  particleState.particleFont = PARTICLE_CONTROL_DEFAULTS.font
+  particleState.interactionMode = PARTICLE_CONTROL_DEFAULTS.interaction
 }

@@ -5,6 +5,9 @@ import { ControlSection, ExperimentShell, LabeledSlider } from "@/components/sha
 import { Button, Switch, TextField, ToggleGroup } from "@/ui";
 import { createDisplacementController, type DisplacementController } from "@projects/distortion/displacement/controller";
 import type { DisplacementDirection } from "@projects/distortion/effects/displacement";
+import { DISPLACEMENT_SCALE_RANGE } from "@projects/distortion/constants/displacement";
+import { INTENSITY_RANGE, RADIUS_RANGE } from "@projects/distortion/constants/common";
+import { useCanvasFit } from "@/hooks/useCanvasFit";
 
 function DisplacementControls({
   controllerRef,
@@ -120,8 +123,8 @@ function DisplacementControls({
       <LabeledSlider
         label="Intensity"
         value={intensity}
-        min={0}
-        max={600}
+        min={INTENSITY_RANGE.min}
+        max={INTENSITY_RANGE.max}
         step={1}
         formatValue={(val) => Math.round(val).toString()}
         onChange={(val) => applyIntensity(val)}
@@ -130,8 +133,8 @@ function DisplacementControls({
       <LabeledSlider
         label="Radius"
         value={radius}
-        min={10}
-        max={1500}
+        min={RADIUS_RANGE.min}
+        max={RADIUS_RANGE.max}
         step={10}
         formatValue={(val) => `${Math.round(val)}px`}
         onChange={(val) => applyRadius(val)}
@@ -140,9 +143,9 @@ function DisplacementControls({
       <LabeledSlider
         label="Displacement Scale"
         value={scale}
-        min={0.1}
-        max={3}
-        step={0.1}
+        min={DISPLACEMENT_SCALE_RANGE.min}
+        max={DISPLACEMENT_SCALE_RANGE.max}
+        step={DISPLACEMENT_SCALE_RANGE.step}
         formatValue={(val) => val.toFixed(1)}
         onChange={(val) => applyScale(val)}
       />
@@ -198,9 +201,12 @@ function DisplacementControls({
 
 function DisplacementPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasContainerRef = useRef<HTMLDivElement | null>(null);
   const controllerRef = useRef<DisplacementController | null>(null);
   const [pointCount, setPointCount] = useState(0);
   const [persistent, setPersistent] = useState(false);
+
+  useCanvasFit(canvasRef, canvasContainerRef);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -223,16 +229,19 @@ function DisplacementPage() {
     <ExperimentShell
       controls={<DisplacementControls controllerRef={controllerRef} persistent={persistent} pointCount={pointCount} />}
       canvas={
-        <div className="flex w-full flex-col gap-4">
+        <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-4 overflow-hidden">
           <div className="flex items-center justify-between gap-2">
             <span className="text-caption text-subtext-color">
               Points: {pointCount} · Persistent mode: {persistent ? "On" : "Off"}
             </span>
           </div>
-          <div className="relative w-full overflow-hidden rounded-md border border-neutral-border bg-black">
+          <div
+            ref={canvasContainerRef}
+            className="relative flex flex-1 min-h-[420px] w-full overflow-hidden rounded-md border border-neutral-border bg-black"
+          >
             <canvas
               ref={canvasRef}
-              className="h-[520px] w-full"
+              className="h-auto w-auto max-h-full max-w-full self-center my-auto"
               onMouseMove={(event) => controllerRef.current?.handlePointerMove(event.nativeEvent)}
               onMouseLeave={() => controllerRef.current?.handlePointerLeave()}
               onClick={(event) => controllerRef.current?.handleCanvasClick(event.nativeEvent)}

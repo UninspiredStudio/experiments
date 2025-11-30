@@ -30,3 +30,7 @@ export function mapRange(
 export function randomBetween(min: number, max: number): number {
   return lerp(min, max, Math.random());
 }
+
+export function clamp01(value: number): number {
+  return clamp(value, 0, 1);
+}

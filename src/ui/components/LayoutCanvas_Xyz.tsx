@@ -23,14 +23,16 @@ const LayoutCanvas_XyzRoot = React.forwardRef<
   return (
     <div
       className={SubframeUtils.twClassNames(
-        "flex h-full w-full flex-col items-start",
+        "flex h-full w-full min-h-0 flex-col items-stretch",
+        
         className
       )}
       ref={ref}
       {...otherProps}
     >
       {children ? (
-        <div className="flex w-full grow shrink-0 basis-0 flex-col items-start gap-2">
+        <div className="flex w-full grow shrink-0 basis-0 flex-col gap-2 min-h-0">
+          
           {children}
         </div>
       ) : null}

@@ -23,14 +23,14 @@ const LayoutContainer_XyzRoot = React.forwardRef<
   return (
     <div
       className={SubframeUtils.twClassNames(
-        "flex h-full w-112 flex-col items-start border border-solid border-neutral-border px-6 py-6",
+        "flex h-full w-112 flex-col items-start border border-solid border-neutral-border px-6 py-6 min-h-0",
         className
       )}
       ref={ref}
       {...otherProps}
     >
       {children ? (
-        <div className="flex w-full grow shrink-0 basis-0 flex-col items-start gap-6 scrollbar-hidden overflow-y-auto">
+        <div className="flex w-full grow shrink-0 basis-0 flex-col items-start gap-12 scrollbar-hidden overflow-y-auto">
           {children}
         </div>
       ) : null}

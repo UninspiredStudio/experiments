@@ -78,6 +78,8 @@ const Track = React.forwardRef<HTMLDivElement, TrackProps>(function Track(
 
 interface SliderRootProps
   extends React.ComponentProps<typeof SubframeCore.Slider.Root> {
+  label?: React.ReactNode;
+  header?: React.ReactNode;
   value?: number[];
   onValueChange?: (value: number[]) => void;
   onValueCommit?: (value: number[]) => void;
@@ -85,21 +87,33 @@ interface SliderRootProps
 }
 
 const SliderRoot = React.forwardRef<HTMLDivElement, SliderRootProps>(
-  function SliderRoot({ className, ...otherProps }: SliderRootProps, ref) {
+  function SliderRoot(
+    { label, header, className, ...otherProps }: SliderRootProps,
+    ref
+  ) {
     return (
       <SubframeCore.Slider.Root asChild={true} {...otherProps}>
         <div
           className={SubframeUtils.twClassNames(
-            "flex h-12 w-full cursor-pointer flex-col items-start justify-center gap-2 overflow-hidden relative",
+            "flex w-full cursor-pointer flex-col items-start gap-4",
             className
           )}
           ref={ref}
         >
-          <span className="text-us-body-singleline font-us-body-singleline text-default-font text-center absolute z-[2] left-0 right-0 pointer-events-none">
-            Label
-          </span>
-          <Track />
-          <Thumb className="h-12 w-6 flex-none" />
+          {header ? (
+            <span className="w-full text-us-body-singleline font-us-body-singleline text-subtext-color">
+              {header}
+            </span>
+          ) : null}
+          <div className="flex h-12 w-full flex-none flex-col items-start justify-center relative">
+            {label ? (
+              <span className="text-us-body-singleline font-us-body-singleline text-default-font text-center absolute z-[2] left-0 right-0 pointer-events-none">
+                {label}
+              </span>
+            ) : null}
+            <Track />
+            <Thumb className="h-12 w-6 flex-none" />
+          </div>
         </div>
       </SubframeCore.Slider.Root>
     );

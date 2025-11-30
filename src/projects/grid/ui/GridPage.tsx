@@ -1,135 +1,132 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import { ControlSection, ExperimentShell, LabeledSlider } from "@/components/shared";
 import { Button, Switch, TextField, ToggleGroup } from "@/ui";
 import { bootstrapGridApp } from "@projects/grid/main";
 import { gridState, noise3D } from "@projects/grid/core/state";
-import { updateGridParams } from "@projects/grid/core/canvas";
-import {
-  applyBrightnessFromSliderDetail,
-  applyFillFromSliderDetail,
-  applySpeedFromSliderDetail,
-} from "@projects/grid/ui/state-adapters";
 import { startBackgroundAnimation, stopAllAnimations } from "@projects/grid/animation/sequence";
+import { startManualRecording, stopRecording } from "@projects/grid/features/recording";
 import { drawBackground } from "@projects/grid/rendering/background";
+import { useGridControlsStore } from "@projects/grid/store/useGridControlsStore";
+import { useCanvasFit } from "@/hooks/useCanvasFit";
+
+function loadImageFromFile(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = (reader.result as string) ?? "";
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 type GridControlsProps = {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
 };
 
-const DEFAULTS = {
-  speed: 0.3684,
-  gridAmount: 10,
-  fill: 0.5,
-  brightness: 0.5,
-  animationArea: "dark" as "everywhere" | "light" | "dark",
-  isSimplified: false,
-  overallDuration: 5,
-  fadeInDuration: 1,
-  fadeOutDuration: 1,
-  startEnabled: false,
-  endEnabled: false,
-  letterColor: "#FFFFFF",
-  letterBgColor: "#000000",
-  letters: "",
-};
-
 function GridControls({ canvasRef }: GridControlsProps) {
-  const [speed, setSpeed] = useState(DEFAULTS.speed);
-  const [gridAmount, setGridAmount] = useState(DEFAULTS.gridAmount);
-  const [fill, setFill] = useState(DEFAULTS.fill);
-  const [brightness, setBrightness] = useState(DEFAULTS.brightness);
-  const [letters, setLetters] = useState(DEFAULTS.letters);
-  const [letterColor, setLetterColor] = useState(DEFAULTS.letterColor);
-  const [letterBgColor, setLetterBgColor] = useState(DEFAULTS.letterBgColor);
-  const [startEnabled, setStartEnabled] = useState(DEFAULTS.startEnabled);
-  const [endEnabled, setEndEnabled] = useState(DEFAULTS.endEnabled);
-  const [animationArea, setAnimationArea] = useState<"everywhere" | "light" | "dark">(DEFAULTS.animationArea);
-  const [isSimplified, setIsSimplified] = useState(DEFAULTS.isSimplified);
-  const [overallDuration, setOverallDuration] = useState(DEFAULTS.overallDuration);
-  const [fadeInDuration, setFadeInDuration] = useState(DEFAULTS.fadeInDuration);
-  const [fadeOutDuration, setFadeOutDuration] = useState(DEFAULTS.fadeOutDuration);
+  const {
+    speed,
+    gridAmount,
+    fill,
+    brightness,
+    letters,
+    letterColor,
+    letterBgColor,
+    startEnabled,
+    endEnabled,
+    animationArea,
+    isSimplified,
+    overallDuration,
+    fadeInDuration,
+    fadeOutDuration,
+    setSpeed,
+    setGridAmount,
+    setFill,
+    setBrightness,
+    setAnimationArea,
+    setSimplified,
+    setDurations,
+    setLetters,
+    setLetterColor,
+    setLetterBgColor,
+    setStartEnabled,
+    setEndEnabled,
+    reset,
+    randomize,
+  } = useGridControlsStore();
 
-  const applyGridAmount = (value: number) => {
-    const amount = Math.max(2, Math.round(value));
-    setGridAmount(amount);
+  const [isRecording, setIsRecording] = React.useState(false);
+  const bgInputRef = useRef<HTMLInputElement | null>(null);
+  const cellInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleStartRecording = useCallback(() => {
     const canvas = canvasRef.current;
-    if (canvas) {
-      updateGridParams(gridState, canvas, amount);
+    if (!canvas) { return; }
+    const started = startManualRecording(gridState, canvas);
+    if (started) {
+      setIsRecording(true);
     }
-  };
+  }, [canvasRef]);
 
-  const applySpeed = (value: number) => {
-    const normalized = Math.max(0, Math.min(1, value));
-    setSpeed(normalized);
-    applySpeedFromSliderDetail(gridState, { value: normalized, displayValue: normalized });
-  };
+  const handleStopRecording = useCallback(() => {
+    stopRecording(gridState);
+    setIsRecording(false);
+  }, []);
 
-  const applyFill = (value: number) => {
-    const normalized = Math.max(0, Math.min(1, value));
-    setFill(normalized);
-    applyFillFromSliderDetail(gridState, { value: normalized, displayValue: normalized });
-  };
+  const handleBgFileChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) { return; }
 
-  const applyBrightness = (value: number) => {
-    const normalized = Math.max(0, Math.min(1, value));
-    setBrightness(normalized);
-    applyBrightnessFromSliderDetail(gridState, { value: normalized, displayValue: normalized });
-  };
+      try {
+        const img = await loadImageFromFile(file);
+        const canvas = canvasRef.current;
+        const hidden = document.getElementById("gridHiddenCanvas") as HTMLCanvasElement | null;
+        if (!canvas || !hidden) { return; }
 
-  const applyAnimationArea = (value: "everywhere" | "light" | "dark") => {
-    setAnimationArea(value);
-    gridState.animationAreaMode = value;
-  };
+        const ctx = canvas.getContext("2d");
+        const hiddenCtx = hidden.getContext("2d", { willReadFrequently: true });
+        if (!ctx || !hiddenCtx) { return; }
 
-  const applySimplified = (value: boolean) => {
-    setIsSimplified(value);
-    gridState.isSimplified = value;
-  };
+        gridState.bgImage = img;
+        gridState.bgImageForDrawing = img;
+        hidden.width = canvas.width;
+        hidden.height = canvas.height;
+        hiddenCtx.clearRect(0, 0, hidden.width, hidden.height);
+        hiddenCtx.drawImage(img, 0, 0, hidden.width, hidden.height);
+        gridState.bgPixelData = null;
 
-  const applyDurations = (overall: number, fadeIn: number, fadeOut: number) => {
-    const safeOverall = Number.isFinite(overall) && overall > 0 ? overall : gridState.overallDuration;
-    const safeFadeIn = Number.isFinite(fadeIn) && fadeIn > 0 ? fadeIn : gridState.startAnimationDuration;
-    const safeFadeOut = Number.isFinite(fadeOut) && fadeOut > 0 ? fadeOut : gridState.endAnimationDuration;
-    setOverallDuration(safeOverall);
-    setFadeInDuration(safeFadeIn);
-    setFadeOutDuration(safeFadeOut);
-    gridState.overallDuration = safeOverall;
-    gridState.startAnimationDuration = safeFadeIn;
-    gridState.endAnimationDuration = safeFadeOut;
-  };
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      } finally {
+        event.target.value = "";
+      }
+    },
+    [canvasRef],
+  );
 
-  const randomize = () => {
-    applySpeed(Math.random());
-    applyGridAmount(5 + Math.random() * 50);
-    applyFill(Math.random());
-    applyBrightness(Math.random());
-    applyAnimationArea(["everywhere", "light", "dark"][Math.floor(Math.random() * 3)] as "everywhere" | "light" | "dark");
-    applySimplified(Math.random() > 0.5);
-  };
+  const handleCellFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) { return; }
 
-  const resetDefaults = () => {
-    applySpeed(DEFAULTS.speed);
-    applyGridAmount(DEFAULTS.gridAmount);
-    applyFill(DEFAULTS.fill);
-    applyBrightness(DEFAULTS.brightness);
-    applyAnimationArea(DEFAULTS.animationArea);
-    applySimplified(DEFAULTS.isSimplified);
-    applyDurations(DEFAULTS.overallDuration, DEFAULTS.fadeInDuration, DEFAULTS.fadeOutDuration);
-    setLetters(DEFAULTS.letters);
-    setLetterColor(DEFAULTS.letterColor);
-    setLetterBgColor(DEFAULTS.letterBgColor);
-    gridState.currentLetters = DEFAULTS.letters;
-    gridState.letterColor = DEFAULTS.letterColor;
-    gridState.letterBgColor = DEFAULTS.letterBgColor;
-    setStartEnabled(DEFAULTS.startEnabled);
-    setEndEnabled(DEFAULTS.endEnabled);
-    gridState.startAnimationEnabled = DEFAULTS.startEnabled;
-    gridState.endAnimationEnabled = DEFAULTS.endEnabled;
-  };
+    gridState.isCellImageLoading = true;
+    try {
+      const images = await Promise.all(files.map((file) => loadImageFromFile(file)));
+      gridState.cellImages = images;
+      gridState.assignedCellData.clear();
+    } finally {
+      gridState.isCellImageLoading = false;
+      event.target.value = "";
+    }
+  }, []);
 
-  const restart = () => {
+  const restart = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) { return; }
     const ctx = canvas.getContext("2d");
@@ -140,23 +137,7 @@ function GridControls({ canvasRef }: GridControlsProps) {
     gridState.assignedCellData.clear();
     gridState.time = 0;
     startBackgroundAnimation(gridState, context, noise3D);
-  };
-
-  useEffect(() => {
-    applySpeed(speed);
-    applyGridAmount(gridAmount);
-    applyFill(fill);
-    applyBrightness(brightness);
-    applyAnimationArea(animationArea);
-    applySimplified(isSimplified);
-    applyDurations(overallDuration, fadeInDuration, fadeOutDuration);
-    gridState.currentLetters = letters;
-    gridState.letterColor = letterColor;
-    gridState.letterBgColor = letterBgColor;
-    gridState.startAnimationEnabled = startEnabled;
-    gridState.endAnimationEnabled = endEnabled;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [canvasRef]);
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -164,13 +145,50 @@ function GridControls({ canvasRef }: GridControlsProps) {
         <Button size="small" variant="brand-secondary" onClick={restart}>
           Restart
         </Button>
-        <Button size="small" variant="neutral-secondary" onClick={randomize}>
+        <Button size="small" variant="neutral-secondary" onClick={() => randomize(canvasRef.current)}>
           Randomize
         </Button>
-        <Button size="small" variant="neutral-tertiary" onClick={resetDefaults}>
+        <Button size="small" variant="neutral-tertiary" onClick={() => reset(canvasRef.current)}>
           Reset defaults
         </Button>
       </div>
+
+      <ControlSection title="Images" spacing="normal">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="small"
+            variant="brand-secondary"
+            onClick={() => bgInputRef.current?.click()}
+          >
+            Upload background
+          </Button>
+          <Button
+            size="small"
+            variant="neutral-secondary"
+            onClick={() => cellInputRef.current?.click()}
+          >
+            Upload cell images
+          </Button>
+        </div>
+        <p className="text-caption text-subtext-color">
+          Custom images override the default placeholders for the grid background and cells.
+        </p>
+        <input
+          ref={bgInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(event) => { void handleBgFileChange(event); }}
+        />
+        <input
+          ref={cellInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(event) => { void handleCellFileChange(event); }}
+        />
+      </ControlSection>
 
       <LabeledSlider
         label="Speed"
@@ -179,7 +197,7 @@ function GridControls({ canvasRef }: GridControlsProps) {
         max={1}
         step={0.01}
         formatValue={(val) => val.toFixed(2)}
-        onChange={(val) => applySpeed(val)}
+        onChange={(val) => setSpeed(val)}
       />
 
       <LabeledSlider
@@ -189,7 +207,7 @@ function GridControls({ canvasRef }: GridControlsProps) {
         max={80}
         step={1}
         formatValue={(val) => Math.round(val).toString()}
-        onChange={(val) => applyGridAmount(val)}
+        onChange={(val) => setGridAmount(val, canvasRef.current)}
       />
 
       <LabeledSlider
@@ -199,7 +217,7 @@ function GridControls({ canvasRef }: GridControlsProps) {
         max={1}
         step={0.01}
         formatValue={(val) => val.toFixed(2)}
-        onChange={(val) => applyFill(val)}
+        onChange={(val) => setFill(val)}
       />
 
       <LabeledSlider
@@ -209,14 +227,14 @@ function GridControls({ canvasRef }: GridControlsProps) {
         max={1}
         step={0.01}
         formatValue={(val) => val.toFixed(2)}
-        onChange={(val) => applyBrightness(val)}
+        onChange={(val) => setBrightness(val)}
       />
 
       <ControlSection title="Pattern">
         <ToggleGroup
           type="single"
           value={isSimplified ? "simple" : "complex"}
-          onValueChange={(val) => applySimplified(val === "simple")}
+          onValueChange={(val) => setSimplified(val === "simple")}
           className="w-full"
         >
           <ToggleGroup.Item value="complex" icon={null}>
@@ -234,7 +252,7 @@ function GridControls({ canvasRef }: GridControlsProps) {
           value={animationArea}
           onValueChange={(val) => {
             if (val === "everywhere" || val === "light" || val === "dark") {
-              applyAnimationArea(val);
+              setAnimationArea(val);
             }
           }}
           className="w-full"
@@ -261,7 +279,7 @@ function GridControls({ canvasRef }: GridControlsProps) {
               value={String(overallDuration)}
               onChange={(event) => {
                 const next = parseFloat(event.target.value);
-                applyDurations(next, fadeInDuration, fadeOutDuration);
+                setDurations(next, fadeInDuration, fadeOutDuration);
               }}
               placeholder="Overall animation length"
             />
@@ -274,7 +292,7 @@ function GridControls({ canvasRef }: GridControlsProps) {
               value={String(fadeInDuration)}
               onChange={(event) => {
                 const next = parseFloat(event.target.value);
-                applyDurations(overallDuration, next, fadeOutDuration);
+                setDurations(overallDuration, next, fadeOutDuration);
               }}
               placeholder="Fade in seconds"
             />
@@ -287,7 +305,7 @@ function GridControls({ canvasRef }: GridControlsProps) {
               value={String(fadeOutDuration)}
               onChange={(event) => {
                 const next = parseFloat(event.target.value);
-                applyDurations(overallDuration, fadeInDuration, next);
+                setDurations(overallDuration, fadeInDuration, next);
               }}
               placeholder="Fade out seconds"
             />
@@ -302,7 +320,6 @@ function GridControls({ canvasRef }: GridControlsProps) {
             onChange={(event) => {
               const next = event.target.value;
               setLetters(next);
-              gridState.currentLetters = next;
             }}
             placeholder="Type letters here"
           />
@@ -315,7 +332,6 @@ function GridControls({ canvasRef }: GridControlsProps) {
             onChange={(event) => {
               const next = event.target.value;
               setLetterColor(next);
-              gridState.letterColor = next;
             }}
             className="h-9 w-12 cursor-pointer rounded border border-neutral-border bg-default-background"
           />
@@ -326,7 +342,6 @@ function GridControls({ canvasRef }: GridControlsProps) {
             onChange={(event) => {
               const next = event.target.value;
               setLetterBgColor(next);
-              gridState.letterBgColor = next;
             }}
             className="h-9 w-12 cursor-pointer rounded border border-neutral-border bg-default-background"
           />
@@ -340,7 +355,6 @@ function GridControls({ canvasRef }: GridControlsProps) {
             checked={startEnabled}
             onCheckedChange={(checked) => {
               setStartEnabled(Boolean(checked));
-              gridState.startAnimationEnabled = Boolean(checked);
             }}
           />
         </div>
@@ -350,9 +364,29 @@ function GridControls({ canvasRef }: GridControlsProps) {
             checked={endEnabled}
             onCheckedChange={(checked) => {
               setEndEnabled(Boolean(checked));
-              gridState.endAnimationEnabled = Boolean(checked);
             }}
           />
+        </div>
+      </ControlSection>
+
+      <ControlSection title="Recording" spacing="tight">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="small"
+            variant="brand-secondary"
+            onClick={handleStartRecording}
+            disabled={isRecording}
+          >
+            Start recording
+          </Button>
+          <Button
+            size="small"
+            variant="neutral-secondary"
+            onClick={handleStopRecording}
+            disabled={!isRecording}
+          >
+            Stop recording
+          </Button>
         </div>
       </ControlSection>
     </div>
@@ -360,8 +394,12 @@ function GridControls({ canvasRef }: GridControlsProps) {
 }
 
 function GridPage() {
+  const applyToGridState = useGridControlsStore((state) => state.applyToGridState);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hiddenBgCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useCanvasFit(canvasRef, canvasContainerRef);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -371,20 +409,24 @@ function GridPage() {
       canvas,
       hiddenBgCanvas: hidden,
     });
+    applyToGridState(canvas);
     return () => {
       cleanup();
     };
-  }, []);
+  }, [applyToGridState]);
 
   return (
     <ExperimentShell
       controls={<GridControls canvasRef={canvasRef} />}
       canvas={
-        <div className="flex w-full flex-col gap-4">
+        <div
+          ref={canvasContainerRef}
+          className="flex h-full min-h-0 w-full flex-1 flex-col gap-4 overflow-hidden"
+        >
           <canvas
             ref={canvasRef}
             id="gridCanvas"
-            className="max-w-full rounded-md border border-neutral-border bg-black"
+            className="h-auto w-auto max-h-full max-w-full self-center my-auto rounded-md border border-neutral-border bg-black"
           />
           <canvas ref={hiddenBgCanvasRef} id="gridHiddenCanvas" className="hidden" />
         </div>

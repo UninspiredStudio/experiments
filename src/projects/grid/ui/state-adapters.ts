@@ -1,4 +1,9 @@
 import type { GridState } from '../types'
+import {
+  mapBrightnessNormalizedToThreshold,
+  mapFillNormalizedToNoiseThreshold,
+  mapSpeedNormalizedToTimeStep,
+} from '../core/mappings'
 
 export interface SliderChangeDetail {
   value: number
@@ -44,24 +49,6 @@ export function getGridAmountFromSlider(element: HTMLElement | null): number {
   const minAttr = element.getAttribute('min')
   const fallback = minAttr ? Number.parseFloat(minAttr) : 10
   return Number.isFinite(fallback) && fallback > 0 ? fallback : 10
-}
-
-export function mapSpeedNormalizedToTimeStep(normalized: number): number {
-  const clamped = Math.max(0, Math.min(1, normalized))
-  const minTimeStep = 0.001
-  const maxTimeStep = 0.02
-  return clamped * (maxTimeStep - minTimeStep) + minTimeStep
-}
-
-export function mapFillNormalizedToNoiseThreshold(normalized: number): number {
-  const clamped = Math.max(0, Math.min(1, normalized))
-  return 1 - clamped
-}
-
-export function mapBrightnessNormalizedToThreshold(normalized: number): number {
-  const clamped = Math.max(0, Math.min(1, normalized))
-  const value = Math.round(clamped * 255)
-  return Math.max(0, Math.min(255, value))
 }
 
 export function applySpeedFromSliderDetail(state: GridState, detail: SliderChangeDetail | null): void {

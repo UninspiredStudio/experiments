@@ -27,18 +27,17 @@ export function LabeledSlider({
   className,
   onChange,
 }: LabeledSliderProps) {
-  const formatted = formatValue ? formatValue(value) : String(value);
+  const sliderLabel = formatValue ? formatValue(value) : String(value);
 
   return (
     <div className={SubframeUtils.twClassNames("flex flex-col gap-3", className)}>
-      <label className="text-caption-bold font-caption-bold text-default-font">
-        {formatted ? `${label} (${formatted})` : label}
-      </label>
       <Slider
         value={[value]}
         min={min}
         max={max}
         step={step}
+        header={label}
+        label={sliderLabel}
         aria-label={label}
         onValueChange={(vals) => onChange(vals?.[0] ?? value)}
       />

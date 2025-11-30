@@ -3,6 +3,8 @@ import type { GridCanvasContext } from './core/canvas'
 import { updateGridParams } from './core/canvas'
 import { INITIAL_CANVAS_SIZE, MAX_INTERNAL_RESOLUTION } from './constants'
 import { startBackgroundAnimation, stopAllAnimations } from './animation/sequence'
+import { useGridControlsStore } from './store/useGridControlsStore'
+import { DEFAULT_PLACEHOLDER_IMAGE, PLACEHOLDER_IMAGES } from '@/config/assets'
 
 export interface GridBootstrapOptions {
   canvas: HTMLCanvasElement
@@ -75,10 +77,11 @@ function loadDefaultImages(
     updateGridParams(gridState, canvas, gridState.gridAmount)
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height)
+    useGridControlsStore.getState().hydrateFromGrid(gridState)
   }
-  bgImg.src = '/img-placeholder/1.jpeg'
+  bgImg.src = DEFAULT_PLACEHOLDER_IMAGE
 
-  const defaultCellPaths = ['/img-placeholder/2.jpeg', '/img-placeholder/3.jpeg', '/img-placeholder/4.jpeg', '/img-placeholder/5.jpeg']
+  const defaultCellPaths = PLACEHOLDER_IMAGES.slice(1)
 
   Promise.all(
     defaultCellPaths.map(
@@ -113,6 +116,7 @@ export function bootstrapGridApp(options: GridBootstrapOptions): () => void {
   }
 
   updateGridParams(gridState, canvas, gridState.gridAmount)
+  useGridControlsStore.getState().hydrateFromGrid(gridState)
 
   startBackgroundAnimation(gridState, initialContext, noise3D)
 

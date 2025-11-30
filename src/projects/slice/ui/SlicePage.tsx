@@ -5,6 +5,8 @@ import { ControlSection, ExperimentShell, LabeledSlider } from "@/components/sha
 import { Button, TextField } from "@/ui";
 import { drawTiledImageSection } from "@projects/slice/utils/geometry";
 import { loadImageFromFile } from "@projects/distortion/core/image-loader";
+import { useCanvasFit } from "@/hooks/useCanvasFit";
+import { fitCanvasToContainer } from "@/utils/fitCanvasToContainer";
 
 const PLACEHOLDER_A = "/img-placeholder/1.jpeg";
 const PLACEHOLDER_B = "/img-placeholder/2.jpeg";
@@ -187,14 +189,14 @@ function SliceCanvas({
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
 }) {
   return (
-    <div className="flex w-full flex-col gap-3">
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-3 overflow-hidden">
       <p className="text-caption text-subtext-color">
         Alternating slices from two images scroll across the canvas. Tweak speeds, gaps, and displacement to sculpt
         the collage.
       </p>
       <canvas
         ref={canvasRef}
-        className="max-w-full rounded-md border border-neutral-border bg-black"
+        className="h-auto w-auto max-h-full max-w-full self-center my-auto rounded-md border border-neutral-border bg-black"
       />
     </div>
   );
@@ -205,6 +207,8 @@ export default function SlicePage() {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const ctxRef = React.useRef<CanvasRenderingContext2D | null>(null);
   const rafRef = React.useRef<number | null>(null);
+
+  useCanvasFit(canvasRef, containerRef);
 
   const imageARef = React.useRef<HTMLImageElement | null>(null);
   const imageBRef = React.useRef<HTMLImageElement | null>(null);
@@ -250,6 +254,7 @@ export default function SlicePage() {
     const height = Math.max(500, Math.round(width * 0.65));
     canvas.width = width;
     canvas.height = height;
+    fitCanvasToContainer(canvas, container ?? canvas.parentElement);
   }, []);
 
   const renderFrame = React.useCallback((timestamp: number) => {
@@ -471,7 +476,7 @@ export default function SlicePage() {
         />
       }
       canvas={
-        <div ref={containerRef} className="w-full">
+        <div ref={containerRef} className="flex h-full min-h-0 w-full flex-1 flex-col">
           <SliceCanvas canvasRef={canvasRef} />
           <input
             ref={fileARef}

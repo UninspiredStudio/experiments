@@ -21,15 +21,15 @@ export function ExperimentShell({
   return (
     <div
       className={SubframeUtils.twClassNames(
-        "flex min-h-screen w-full flex-col gap-8 overflow-y-auto bg-default-background px-6 py-8 lg:h-screen lg:flex-row lg:items-start lg:gap-12 lg:overflow-hidden lg:px-12",
+        "flex min-h-screen w-full flex-col gap-8 overflow-y-auto bg-default-background px-6 py-8 lg:h-screen lg:min-h-0 lg:flex-row lg:items-start lg:gap-12 lg:overflow-hidden lg:px-12",
         className,
       )}
     >
-      <LayoutContainer_Xyz className="h-auto w-full flex-none self-stretch overflow-y-auto lg:h-full lg:w-112 lg:pr-2">
+      <LayoutContainer_Xyz className="h-auto w-full flex-none self-stretch overflow-y-auto lg:h-full lg:min-h-0 lg:w-112 lg:pr-2">
         {controls}
       </LayoutContainer_Xyz>
-      <LayoutCanvas_Xyz className="lg:h-full lg:flex-1 lg:overflow-hidden">
-        <div className="flex w-full grow shrink-0 basis-0 flex-col items-start gap-2 lg:h-full lg:overflow-auto">
+      <LayoutCanvas_Xyz className="lg:h-full lg:min-h-0 lg:flex-1 lg:overflow-hidden">
+        <div className="flex w-full grow shrink-0 basis-0 flex-col items-start gap-2 lg:h-full lg:min-h-0 lg:overflow-hidden">
           {canvas}
         </div>
       </LayoutCanvas_Xyz>

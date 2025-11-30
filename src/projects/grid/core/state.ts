@@ -3,19 +3,46 @@ import { createNoise3DInstance } from '@shared/utils/noise'
 
 import type { GridState } from '../types'
 import { INITIAL_CANVAS_SIZE } from '../constants'
+import { GRID_CONTROL_DEFAULTS } from '../constants/defaults'
+import {
+  mapBrightnessNormalizedToThreshold,
+  mapFillNormalizedToNoiseThreshold,
+  mapSpeedNormalizedToTimeStep,
+} from './mappings'
 
 export function createInitialState(): GridState {
+  const {
+    gridAmount,
+    speed,
+    fill,
+    brightness,
+    animationArea,
+    isSimplified,
+    overallDuration,
+    fadeInDuration,
+    fadeOutDuration,
+    startEnabled,
+    endEnabled,
+    letterColor,
+    letterBgColor,
+    letters,
+  } = GRID_CONTROL_DEFAULTS
+
+  const timeStep = mapSpeedNormalizedToTimeStep(speed)
+  const noiseThreshold = mapFillNormalizedToNoiseThreshold(fill)
+  const brightnessThreshold = mapBrightnessNormalizedToThreshold(brightness)
+
   return {
     time: 0,
-    timeStep: 0.001,
+    timeStep,
 
-    gridAmount: 10,
-    calculatedCellSize: INITIAL_CANVAS_SIZE / 10,
-    numCellsX: 10,
-    numCellsY: 10,
+    gridAmount,
+    calculatedCellSize: INITIAL_CANVAS_SIZE / gridAmount,
+    numCellsX: gridAmount,
+    numCellsY: gridAmount,
 
-    noiseThreshold: 0.5,
-    isSimplified: false,
+    noiseThreshold,
+    isSimplified,
 
     cellImages: [],
     isCellImageLoading: false,
@@ -24,23 +51,23 @@ export function createInitialState(): GridState {
     bgPixelData: null,
     bgPixelDataWidth: 0,
 
-    animationAreaMode: 'dark',
-    brightnessThreshold: 128,
+    animationAreaMode: animationArea,
+    brightnessThreshold,
 
-    currentLetters: '',
-    letterColor: '#FFFFFF',
-    letterBgColor: '#000000',
+    currentLetters: letters,
+    letterColor,
+    letterBgColor,
 
     isStarting: false,
     isMainLoopActive: false,
     isEnding: false,
     isBackgroundLoopActive: false,
 
-    startAnimationEnabled: false,
-    endAnimationEnabled: false,
-    startAnimationDuration: 1,
-    endAnimationDuration: 1,
-    overallDuration: 5,
+    startAnimationEnabled: startEnabled,
+    endAnimationEnabled: endEnabled,
+    startAnimationDuration: fadeInDuration,
+    endAnimationDuration: fadeOutDuration,
+    overallDuration,
 
     startAnimationStartTime: 0,
     mainAnimationStartTime: 0,
